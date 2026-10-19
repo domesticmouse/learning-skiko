@@ -1281,6 +1281,299 @@ def cmd_explorer_paths(
         show_paths(sessions_data[0])
 
 
+def format_ts_full(ts_str: str | None) -> str:
+    """Format an ISO timestamp into localized display and UTC strings."""
+    if not ts_str:
+        return "Unknown"
+    try:
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        local_dt = dt.astimezone()
+        tz_abbr = local_dt.tzname() or "Local"
+        local_s = local_dt.strftime(f"%Y-%m-%d %H:%M:%S {tz_abbr}")
+        utc_s = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        return f"{local_s} (`{utc_s}`)"
+    except Exception:
+        return ts_str
+
+
+def slugify_text(text: str, max_words: int = 6) -> str:
+    """Create a URL/filename-friendly slug from prompt or title text."""
+    clean = re.sub(r"^/[a-zA-Z0-9_\-]+", "", text)
+    clean = re.sub(r"@[\[\(].*?[\]\)]", "", clean)
+    clean = re.sub(r"[^a-zA-Z0-9\s-]", "", clean).strip()
+    words = clean.split()[:max_words]
+    slug = "-".join(w.lower() for w in words)
+    return slug or "session"
+
+
+def generate_session_markdown(
+    data: SessionData, sequence_num: int | None = None
+) -> tuple[str, str, dict[str, Any]]:
+    """Generate comprehensive Markdown content for a session capturing prompts, actions, and timestamps."""
+    meta = data.get_metadata_info()
+    start_dt, end_dt, duration_str = data.get_start_and_end_times()
+    start_ts = data.steps[0].get("created_at") if data.steps else None
+    end_ts = data.steps[-1].get("created_at") if data.steps else None
+
+    first_req = data.get_user_request_clean()
+    slug = slugify_text(first_req)
+    prefix = f"{sequence_num:02d}-" if sequence_num is not None else ""
+    filename = f"{prefix}{slug}.md"
+
+    first_line = first_req.splitlines()[0] if first_req else "Session"
+    if len(first_line) > 65:
+        first_line = first_line[:62] + "..."
+    title_header = (
+        f"Conversation {sequence_num:02d}: {first_line}"
+        if sequence_num is not None
+        else f"Conversation: {first_line}"
+    )
+
+    lines: list[str] = []
+    lines.append(f"# {title_header}\n")
+    lines.append(
+        f"- **Session ID**: `{data.session_id}` [↗](conversation://{data.session_id})"
+    )
+    lines.append(f"- **Start Time**: {format_ts_full(start_ts)}")
+    lines.append(f"- **End Time**: {format_ts_full(end_ts)}")
+    lines.append(f"- **Duration**: {duration_str}")
+    if "Model" in meta:
+        lines.append(f"- **Model**: {meta['Model']}")
+    if "Workspace" in meta:
+        lines.append(f"- **Workspace**: [`{meta['Workspace']}`](file://{meta['Workspace']})")
+    if "Project" in meta:
+        lines.append(f"- **Project**: `{meta['Project']}`")
+    lines.append("\n---\n")
+
+    turns: list[dict[str, Any]] = []
+    cur_turn: dict[str, Any] | None = None
+    all_files_modified: list[str] = []
+
+    for s in data.full_steps:
+        stype = s.get("type")
+        content = s.get("content", "")
+
+        if stype == "USER_INPUT":
+            if cur_turn:
+                turns.append(cur_turn)
+            m = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", content, re.DOTALL)
+            prompt = m.group(1).strip() if m else content.strip()
+            cur_turn = {
+                "start_time": s.get("created_at"),
+                "end_time": s.get("created_at"),
+                "prompt": prompt,
+                "tool_calls": [],
+                "responses": [],
+            }
+        elif cur_turn:
+            cur_turn["end_time"] = s.get("created_at")
+            for tc in s.get("tool_calls", []):
+                tname = tc.get("name")
+                args = tc.get("args", {})
+                cur_turn["tool_calls"].append(
+                    {
+                        "name": tname,
+                        "action": tc.get("toolAction") or tc.get("toolSummary"),
+                        "args": args,
+                    }
+                )
+                if tname in ("write_to_file", "replace_file_content"):
+                    tf = args.get("TargetFile")
+                    if tf and tf not in all_files_modified:
+                        all_files_modified.append(tf)
+            c = s.get("content")
+            if c and c.strip():
+                cur_turn["responses"].append(c.strip())
+
+    if cur_turn:
+        turns.append(cur_turn)
+
+    lines.append("## Conversation Turns\n")
+    for idx, turn in enumerate(turns, 1):
+        prompt_text = turn["prompt"]
+        turn_fl = prompt_text.splitlines()[0] if prompt_text else ""
+        if len(turn_fl) > 60:
+            turn_fl = turn_fl[:57] + "..."
+
+        lines.append(f"### Turn {idx}: {turn_fl}\n")
+        lines.append(f"- **Timestamp**: {format_ts_full(turn['start_time'])}")
+        lines.append(f"- **Turn Duration**: {format_ts_full(turn['end_time'])}")
+        lines.append("\n#### User Prompt\n")
+        lines.append("```text")
+        lines.append(prompt_text)
+        lines.append("```\n")
+
+        narrative = ""
+        if turn["responses"]:
+            last = turn["responses"][-1].strip()
+            paragraphs = [p.strip() for p in last.split("\n\n") if p.strip()]
+            selected = [p for p in paragraphs if not p.startswith("#")]
+            narrative = " ".join(selected[:2]) if selected else last[:300]
+            if len(narrative) > 600:
+                narrative = narrative[:597] + "..."
+
+        lines.append("#### Antigravity Actions & Summary\n")
+        if narrative:
+            lines.append(f"{narrative}\n")
+
+        bullets: list[str] = []
+        seen: set[str] = set()
+        for tc in turn["tool_calls"]:
+            tname = tc.get("name")
+            args = tc.get("args", {})
+            if tname == "run_command":
+                cmd = args.get("CommandLine", "").strip()
+                first_cmd = cmd.splitlines()[0] if cmd else ""
+                if len(first_cmd) > 90:
+                    first_cmd = first_cmd[:87] + "..."
+                entry = f"`run_command`: `{first_cmd}`"
+            elif tname in ("write_to_file", "replace_file_content"):
+                tgt = args.get("TargetFile", "")
+                base = os.path.basename(tgt)
+                entry = f"`{tname}`: [`{base}`](file://{tgt})"
+            elif tname == "view_file":
+                tgt = args.get("AbsolutePath", "")
+                base = os.path.basename(tgt)
+                entry = f"`view_file`: [`{base}`](file://{tgt})"
+            elif tname == "search_web":
+                entry = f"`search_web`: *\"{args.get('query', '')}\"*"
+            elif tname == "ask_question":
+                entry = "`ask_question`: Interactive user selection modal"
+            else:
+                entry = f"`{tname}`"
+            if entry not in seen:
+                seen.add(entry)
+                bullets.append(entry)
+
+        if bullets:
+            lines.append("\n**Key Operations Executed:**\n")
+            for b in bullets:
+                lines.append(f"- {b}")
+            lines.append("")
+
+        lines.append("\n---\n")
+
+    if all_files_modified:
+        lines.append("## Key Files Created / Modified\n")
+        for f in all_files_modified:
+            base = os.path.basename(f)
+            lines.append(f"- [`{base}`](file://{f}) - `{f}`")
+        lines.append("")
+
+    content_str = "\n".join(lines)
+    start_disp = format_datetime_display(start_dt, start_ts or "")
+    summary_meta = {
+        "sequence_num": sequence_num,
+        "filename": filename,
+        "title": first_line,
+        "session_id": data.session_id,
+        "start_display": start_disp,
+        "duration": duration_str,
+        "turns_count": len(turns),
+        "files_modified_count": len(all_files_modified),
+    }
+    return filename, content_str, summary_meta
+
+
+@explorer_app.command(name="export")
+def cmd_explorer_export(
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "--project",
+            "-p",
+            help="Filter sessions by project name or workspace path.",
+        ),
+    ] = None,
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Target output directory for markdown files (default: ./prompts).",
+        ),
+    ] = Path("./prompts"),
+    brain: Annotated[
+        str | None,
+        typer.Option(
+            "--brain",
+            "-b",
+            help="Filter sessions to a specific brain root folder.",
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-n",
+            help="Limit number of sessions exported.",
+        ),
+    ] = None,
+    no_index: Annotated[
+        bool,
+        typer.Option(
+            "--no-index",
+            help="Do not generate a master README.md index table.",
+        ),
+    ] = False,
+) -> None:
+    """Export conversation sessions to formatted Markdown prompt files capturing prompts, actions, and timestamps."""
+    traces = discover_traces(brain_filter=brain, project_filter=project, asc=True)
+    if not traces:
+        print("*No sessions found matching the specified filters.*")
+        return
+
+    traces_to_export = traces[:limit] if limit else traces
+    output.mkdir(parents=True, exist_ok=True)
+
+    exported_entries = []
+    print(f"Exporting {len(traces_to_export)} session(s) to [`{output}`](file://{output.resolve()})...\n")
+
+    for idx, trace in enumerate(traces_to_export, 1):
+        s_data = SessionData.load(trace.session_dir)
+        filename, content, meta = generate_session_markdown(s_data, sequence_num=idx)
+        out_file = output / filename
+        out_file.write_text(content, encoding="utf-8")
+        meta["file_path"] = out_file
+        exported_entries.append(meta)
+        session_link = f"`{trace.session_id[:8]}` [↗](conversation://{trace.session_id})"
+        print(f"- **#{idx:02d}**: {session_link} -> [`{filename}`](file://{out_file.resolve()}) ({meta['turns_count']} turns, {meta['duration']})")
+
+    if not no_index and exported_entries:
+        index_file = output / "README.md"
+        proj_label = f" for `{project}`" if project else ""
+        readme_lines = [
+            f"# Conversation Prompt Archive{proj_label}\n",
+            "This directory contains detailed Markdown records capturing user prompts, Antigravity actions, "
+            "tool executions, modified files, and timestamps across project conversations.\n",
+            "## Index of Conversations\n",
+            "| # | Title | Date / Time | Duration | Turns | Session Link | File |",
+            "| :--- | :--- | :--- | :---: | :---: | :---: | :--- |",
+        ]
+        for e in exported_entries:
+            s_num = f"{e['sequence_num']:02d}"
+            s_link = f"`{e['session_id'][:8]}` [↗](conversation://{e['session_id']})"
+            fn = e["filename"]
+            readme_lines.append(
+                f"| {s_num} | **{e['title']}** | {e['start_display']} | {e['duration']} | {e['turns_count']} | {s_link} | [{fn}](./{fn}) |"
+            )
+        readme_lines.append("")
+        index_file.write_text("\n".join(readme_lines), encoding="utf-8")
+        print(f"\nGenerated master index: [`{index_file.name}`](file://{index_file.resolve()})")
+
+
+@explorer_app.command(name="archive", hidden=True)
+def cmd_explorer_archive(
+    project: Annotated[str | None, typer.Option("--project", "-p")] = None,
+    output: Annotated[Path, typer.Option("--output", "-o")] = Path("./prompts"),
+    brain: Annotated[str | None, typer.Option("--brain", "-b")] = None,
+    limit: Annotated[int | None, typer.Option("--limit", "-n")] = None,
+    no_index: Annotated[bool, typer.Option("--no-index")] = False,
+) -> None:
+    """Alias for export."""
+    cmd_explorer_export(project=project, output=output, brain=brain, limit=limit, no_index=no_index)
+
+
 def move_session_to_trash(session_dir: Path) -> Path:
     """Move session directory to macOS ~/.Trash or fallback ~/.gemini/.trash with collision avoidance."""
     trash_dir = Path.home() / ".Trash"
@@ -2462,6 +2755,47 @@ def cmd_session_compare(
     show_comparison(data, other_data)
 
 
+@session_app.command(name="export")
+def cmd_session_export(
+    ctx: typer.Context,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Target output file or directory (default: ./prompts/<slug>.md).",
+        ),
+    ] = None,
+) -> None:
+    """Export this session to a formatted Markdown prompt file capturing prompts, actions, and timestamps."""
+    data: SessionData = ctx.obj
+    filename, content, meta = generate_session_markdown(data)
+
+    if output is None:
+        target_dir = Path("./prompts")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_file = target_dir / filename
+    elif output.is_dir() or str(output).endswith("/"):
+        output.mkdir(parents=True, exist_ok=True)
+        target_file = output / filename
+    else:
+        target_file = output
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+
+    target_file.write_text(content, encoding="utf-8")
+    session_link = f"`{data.session_id[:8]}` [↗](conversation://{data.session_id})"
+    print(f"Exported session {session_link} to [`{target_file.name}`](file://{target_file.resolve()}) ({meta['turns_count']} turns, {meta['duration']})")
+
+
+@session_app.command(name="archive", hidden=True)
+def cmd_session_archive(
+    ctx: typer.Context,
+    output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+) -> None:
+    """Alias for export."""
+    cmd_session_export(ctx, output=output)
+
+
 @session_app.command(name="delete")
 def cmd_session_delete(
     ctx: typer.Context,
@@ -2544,6 +2878,8 @@ def is_explorer_invocation(args: list[str]) -> bool:
         "delete",
         "rm",
         "remove",
+        "export",
+        "archive",
     }
     val_flags = {
         "--limit",
@@ -2559,6 +2895,8 @@ def is_explorer_invocation(args: list[str]) -> bool:
         "-q",
         "--search",
         "-s",
+        "--output",
+        "-o",
     }
     non_opts: list[str] = []
     skip_next = False
@@ -2612,6 +2950,8 @@ def main() -> None:
             "delete",
             "rm",
             "remove",
+            "export",
+            "archive",
         }
         has_subcommand = any(arg in session_subcommands for arg in args)
         final_args = list(args)

@@ -1,11 +1,11 @@
 ---
 name: agy-brain-explorer
 description: >-
-  Discover, list, inspect, compare, audit, and safely delete Google Antigravity session trajectories,
-  transcripts, disk paths, tool invocations, and execution steps across all brain storage
-  directories under ~/.gemini. Use whenever asked to list recent/past sessions,
-  review session histories, compare sessions, inspect disk locations, debug trajectory steps,
-  or delete sessions and projects.
+  Discover, list, inspect, compare, audit, export, archive, and safely delete Google
+  Antigravity session trajectories, transcripts, disk paths, tool invocations, and execution
+  steps across all brain storage directories under ~/.gemini. Use whenever asked to list recent/past
+  sessions, export or archive prompt histories to Markdown, review session histories, compare
+  sessions, inspect disk locations, debug trajectory steps, or delete sessions and projects.
 ---
 
 # Antigravity Brain Explorer Skill
@@ -198,5 +198,23 @@ uv run .agents/skills/agy-brain-explorer/scripts/agy-brain-explorer.py delete <S
 
 # Delete a session using single-session syntax
 uv run .agents/skills/agy-brain-explorer/scripts/agy-brain-explorer.py <SESSION> delete --force
+```
+
+### 12. Export & Archive Conversation Markdown (`export` / `archive`)
+
+Export conversations to structured Markdown prompt files capturing user prompts (verbatim), Antigravity actions (reasoning, summaries, commands run, files modified), and precise timestamps (both local time and UTC), plus an index `README.md`:
+
+```bash
+# Export all conversations in a project to ./prompts with an index README.md
+uv run .agents/skills/agy-brain-explorer/scripts/agy-brain-explorer.py export --project "kotlin-experiment" --output ./prompts
+
+# Export to a custom archive directory
+uv run .agents/skills/agy-brain-explorer/scripts/agy-brain-explorer.py export --project "spring-petclinic" --output ./docs/conversations
+
+# Export a single conversation by session ID or prefix
+uv run .agents/skills/agy-brain-explorer/scripts/agy-brain-explorer.py <SESSION> export --output ./prompts/my-session.md
+
+# Export without generating a README.md index
+uv run .agents/skills/agy-brain-explorer/scripts/agy-brain-explorer.py export --project "gpui" --no-index
 ```
 
