@@ -92,6 +92,25 @@ body {
   margin-bottom: 0.4rem;
 }
 
+#sidebar .nav-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--highlight);
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  padding-left: 0.75rem;
+}
+
+#sidebar .nav-planned {
+  display: block;
+  color: #64748b;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  font-style: italic;
+}
+
 #sidebar a {
   display: block;
   color: var(--text-muted);
