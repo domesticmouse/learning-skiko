@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 3: Headless Bitmaps & Offscreen Fitness Evaluation</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .math-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem 1.75rem;
+      margin: 1.5rem 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .pixel-inspector {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      text-align: center;
+    }
+    .pixel-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .swatch {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      border: 2px solid var(--card-border);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .pixel-channels {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-family: ui-monospace, monospace;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html" class="active">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#fitness-concept">1. The Fitness Objective</a></li>
+        <li><a href="#l1-distance">2. L1 Manhattan vs L2 Distance</a></li>
+        <li><a href="#headless-bitmaps">3. Headless Skia Bitmaps</a></li>
+        <li><a href="#evaluator-code">4. The Evaluator Class</a></li>
+        <li><a href="#pixel-demo">5. Interactive Pixel Calculator</a></li>
+        <li><a href="#target-image">6. The TargetImage Loader</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 3 &bull; Fitness & Evaluation</div>
+      <h1>Headless Bitmaps & Offscreen Fitness Evaluation</h1>
+      <p class="lead">
+        Build a high-throughput fitness evaluator in Kotlin using headless Skia Bitmaps, understand direct pixel byte buffer comparisons, and eliminate memory allocation overhead in your inner loop.
+      </p>
+    </header>
+
+    <!-- SECTION 1: FITNESS CONCEPT -->
+    <section id="fitness-concept">
+      <h2><span class="section-num">1</span> The Fitness Objective Function</h2>
+      <p>
+        In an evolutionary algorithm, the <strong>fitness function</strong> is the mathematical compass that guides mutation selection. Without human judgment in the loop, the algorithm requires a deterministic scalar value indicating how closely a candidate painting matches the target image.
+      </p>
+      <p>
+        In image evolution, our objective is to <em>minimize difference</em> (also known as the error or loss function):
+      </p>
+      <div class="math-card">
+        Fitness Error = \sum_{x, y} \text{Distance}(\text{CandidatePixel}(x, y), \text{TargetPixel}(x, y))
+      </div>
+      <p>
+        A lower error score means a closer visual approximation. An error of <code>0</code> would represent an identical pixel-for-pixel duplicate.
+      </p>
+    </section>
+
+    <!-- SECTION 2: L1 VS L2 -->
+    <section id="l1-distance">
+      <h2><span class="section-num">2</span> L1 Manhattan vs. L2 Euclidean Distance</h2>
+      <p>
+        When comparing two RGB color vectors \((R_1, G_1, B_1)\) and \((R_2, G_2, B_2)\), there are two common metrics:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>📐 L1 Distance (Manhattan)</h4>
+          <p>\[ \Delta = |R_1 - R_2| + |G_1 - G_2| + |B_1 - B_2| \]</p>
+          <p><strong>Pros:</strong> Extremely fast on the CPU, requires no squaring or square root, uses simple subtraction and bitwise masks.</p>
+        </div>
+        <div class="card">
+          <h4>📏 L2 Distance (Euclidean / MSE)</h4>
+          <p>\[ \Delta = (R_1 - R_2)^2 + (G_1 - G_2)^2 + (B_1 - B_2)^2 \]</p>
+          <p><strong>Pros:</strong> Penalizes large individual pixel discrepancies more heavily, but requires multiplication and risks integer overflow on large images.</p>
+        </div>
+      </div>
+      <p>
+        For our painter engine running thousands of evaluations per second, <strong>L1 Manhattan distance</strong> is the superior choice, delivering exceptional visual convergence with minimal CPU cycles.
+      </p>
+    </section>
+
+    <!-- SECTION 3: HEADLESS BITMAPS -->
+    <section id="headless-bitmaps">
+      <h2><span class="section-num">3</span> Headless Skia Bitmaps</h2>
+      <p>
+        Unlike the windowed canvas in Lesson 1 which renders onto an AWT <code>JFrame</code> at 60 FPS, the fitness evaluator must run <strong>headlessly</strong> (without a visible GUI window) as fast as the CPU allows.
+      </p>
+      <p>
+        Skia allows allocating an in-memory pixel buffer called a <code>Bitmap</code> and binding a <code>Canvas</code> directly to it:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Headless Offscreen Allocation</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Canvas
+
+// 1. Allocate an in-memory 32-bit ARGB raster bitmap
+val bitmap = Bitmap().apply { allocN32Pixels(256, 256) }
+
+// 2. Wrap the bitmap in a Canvas for drawing commands
+val canvas = Canvas(bitmap)
+
+// 3. Render strokes into the bitmap
+candidatePainting.render(canvas, 256f, 256f, paint, path)
+
+// 4. Extract raw byte array of pixels
+val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 4: EVALUATOR CODE -->
+    <section id="evaluator-code">
+      <h2><span class="section-num">4</span> The Evaluator Class Architecture</h2>
+      <p>
+        Now examine <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Evaluator.kt"><code>Evaluator.kt</code></a> in your workspace:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/main/kotlin/Evaluator.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">class Evaluator(
+    val width: Int,
+    val height: Int,
+    val targetBytes: ByteArray,
+    val backgroundColor: Int = Color.WHITE,
+) {
+    // Reusable offscreen buffers — allocated ONCE!
+    private val bitmap = Bitmap().apply { allocN32Pixels(width, height) }
+    private val canvas = Canvas(bitmap)
+    private val paint = Paint()
+    private val path = Path()
+
+    fun evaluate(painting: Painting): Long {
+        // 1. Render candidate painting offscreen
+        painting.render(
+            canvas = canvas,
+            width = width.toFloat(),
+            height = height.toFloat(),
+            paint = paint,
+            path = path,
+            backgroundColor = backgroundColor,
+        )
+
+        // 2. Read pixel buffer
+        val candidateBytes = bitmap.readPixels(bitmap.imageInfo) ?: return Long.MAX_VALUE
+
+        // 3. High-speed L1 Manhattan distance across bytes
+        var diff = 0L
+        val totalBytes = width * height * 4
+        var i = 0
+        while (i < totalBytes) {
+            val bDiff = Math.abs((candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF))
+            val gDiff = Math.abs((candidateBytes[i + 1].toInt() and 0xFF) - (targetBytes[i + 1].toInt() and 0xFF))
+            val rDiff = Math.abs((candidateBytes[i + 2].toInt() and 0xFF) - (targetBytes[i + 2].toInt() and 0xFF))
+
+            diff += (bDiff + gDiff + rDiff)
+            i += 4 // Skip alpha channel since background is opaque
+        }
+        return diff
+    }
+}</code></pre>
+      </div>
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Kotlin Byte Signedness Gotcha</div>
+        In Kotlin/Java, <code>Byte</code> is signed (\(-128\) to \(127\)). When calculating color differences, you must convert to unsigned integers using <code>b.toInt() and 0xFF</code> before subtracting, otherwise a channel value like \(200\) (represented as \(-56\)) will produce distorted arithmetic!
+      </div>
+    </section>
+
+    <!-- SECTION 5: PIXEL DEMO -->
+    <section id="pixel-demo">
+      <h2><span class="section-num">5</span> Interactive Pixel Difference Calculator</h2>
+      <p>
+        Compare how two sample pixels are evaluated under the L1 distance formula:
+      </p>
+      <div class="pixel-inspector">
+        <div class="pixel-box">
+          <strong>Target Pixel</strong>
+          <div class="swatch" style="background-color: #3b82f6;"></div>
+          <div class="pixel-channels">RGB: (59, 130, 246)</div>
+        </div>
+        <div class="pixel-box">
+          <strong>Candidate Pixel</strong>
+          <div class="swatch" style="background-color: #8b5cf6;"></div>
+          <div class="pixel-channels">RGB: (139, 92, 246)</div>
+        </div>
+        <div class="pixel-box">
+          <strong>L1 Error Score</strong>
+          <div class="swatch" style="background-color: #1e2132; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--highlight); font-size: 1.3rem;">
+            118
+          </div>
+          <div class="pixel-channels">|59-139| + |130-92| + |246-246| = 80 + 38 + 0</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: TARGET IMAGE -->
+    <section id="target-image">
+      <h2><span class="section-num">6</span> TargetImage Loading & Rescaling</h2>
+      <p>
+        In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/TargetImage.kt"><code>TargetImage.kt</code></a>, external PNG/JPEG files are loaded and rescaled to the simulation dimension (typically \(256 \times 256\)). If no file path is supplied in CLI arguments, it falls back to a procedurally generated geometric test target.
+      </p>
+      <div class="callout tip">
+        <div class="callout-title">💡 Why 256&times;256 Resolution?</div>
+        A \(256 \times 256\) canvas has \(65,536\) pixels (\(262,144\) bytes). A modern CPU can evaluate this in ~\(0.2\) milliseconds (over 4,000 evaluations/sec). An unscaled \(4000 \times 3000\) camera photo would drop throughput to 20 evals/sec, grinding evolution to a halt.
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Verify your understanding of headless evaluation and byte-level arithmetic.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Why must Kotlin byte channel values be masked with 'and 0xFF' before calculating pixel differences?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Masking has no effect on memory caching or cache line alignment.">To align CPU cache line reads.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Premultiplied alpha is handled by the Skia color format during rasterization.">To remove premultiplied alpha channels.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Kotlin Bytes are signed (-128..127); masking converts them to standard unsigned 0..255 integers.">To convert signed bytes unsigned.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Garbage collection behavior is unrelated to bitwise primitive masking.">To suppress JVM garbage collection.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>Review the <a href="https://skia.org/docs/user/api/SkBitmap_Reference/" target="_blank" rel="noopener">Google Skia Bitmap API Reference</a>. Understanding how pixel memory, row bytes, and color types interact provides the foundation for zero-copy graphics operations.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>Curious about how much faster L1 distance runs compared to squared Euclidean distance? We can run a quick benchmark directly through Gradle in your terminal!</p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0002-vector-brush-strokes.html" class="nav-btn">⬅ Lesson 2: Vector Brush Strokes</a>
+        <a href="0004-evolutionary-hill-climber.html" class="nav-btn">Next: Lesson 4 – The Evolutionary Loop ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

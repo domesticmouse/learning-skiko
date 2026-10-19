@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 2: Vector Brush Strokes & Genotype Representation</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    /* In-lesson interactive sandbox styles */
+    .sandbox-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .sandbox-viewport {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+    }
+    .canvas-wrapper {
+      position: relative;
+      background: #ffffff;
+      border: 2px solid var(--card-border);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    canvas#strokeCanvas {
+      display: block;
+      cursor: crosshair;
+    }
+    .sandbox-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      background: var(--code-bg);
+      padding: 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .control-group label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .control-group input[type="range"] {
+      accent-color: var(--accent-color);
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html" class="active">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#genotype-phenotype">1. Genotype vs Phenotype</a></li>
+        <li><a href="#bezier-curves">2. Quadratic Bézier Curves</a></li>
+        <li><a href="#strokegene-code">3. The StrokeGene Class</a></li>
+        <li><a href="#painting-chromosome">4. The Painting Chromosome</a></li>
+        <li><a href="#interactive-sandbox">5. Interactive Stroke Sandbox</a></li>
+        <li><a href="#mutation-operators">6. Mutation Operators</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 2 &bull; Genetic Representation</div>
+      <h1>Vector Brush Strokes & Genotype Representation</h1>
+      <p class="lead">
+        Learn how to model visual artwork as digital DNA in Kotlin, render smooth curved brush strokes using Skiko's 2D vector path APIs, and design stochastic mutation operators.
+      </p>
+    </header>
+
+    <!-- SECTION 1: GENOTYPE VS PHENOTYPE -->
+    <section id="genotype-phenotype">
+      <h2><span class="section-num">1</span> Genotype vs. Phenotype in Genetic Art</h2>
+      <p>
+        In biological evolution, an organism's <strong>genotype</strong> is its genetic code (DNA sequence), while its <strong>phenotype</strong> is the physical organism expressed in the environment.
+      </p>
+      <p>
+        In procedural genetic art, we maintain the exact same distinction:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>🧬 Genotype (The Code)</h4>
+          <p>A compact data structure representing parameters: coordinates, curves, widths, colors, and opacity. In our codebase, this is modeled by <code>StrokeGene</code> and <code>Painting</code>.</p>
+        </div>
+        <div class="card">
+          <h4>🎨 Phenotype (The Image)</h4>
+          <p>The 2D raster image resulting from executing drawing commands sequentially onto a Skia canvas. The fitness function evaluates the phenotype, not the genotype directly.</p>
+        </div>
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">💡 Why Vector Primitives Over Raw Pixels?</div>
+        If you mutated an array of 256&times;256 raw pixels independently, the search space would be \(256^{256 \times 256}\) — an astronomical impossibility to search. By compressing images into 100–150 vector brush strokes, we drastically reduce dimensionality while producing organic, painterly aesthetic results.
+      </div>
+    </section>
+
+    <!-- SECTION 2: QUADRATIC BEZIER CURVES -->
+    <section id="bezier-curves">
+      <h2><span class="section-num">2</span> Quadratic Bézier Curves in Skia</h2>
+      <p>
+        Straight lines look mechanical. Natural brush strokes curve, bend, and trail off. In Skia, the most efficient curved stroke primitive is the <strong>Quadratic Bézier curve</strong>, defined by 3 points:
+      </p>
+      <ul>
+        <li><strong>Start Point \((x_0, y_0)\)</strong>: Where the brush touches down.</li>
+        <li><strong>Control Point \((x_c, y_c)\)</strong>: An off-curve attractor that pulls the curve toward it.</li>
+        <li><strong>End Point \((x_1, y_1)\)</strong>: Where the brush lifts off.</li>
+      </ul>
+      <p>
+        Mathematically, for \(t \in [0, 1]\), the curve point \(B(t)\) is:
+      </p>
+      <p>
+        \[ B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_c + t^2 P_1 \]
+      </p>
+      <p>
+        In Skiko, drawing a quadratic Bézier curve requires two method calls on an <code>org.jetbrains.skia.Path</code>:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Kotlin (Skiko Path API)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">path.reset()
+path.moveTo(x0, y0)
+path.quadTo(xc, yc, x1, y1)
+canvas.drawPath(path, paint)</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 3: THE STROKEGENE CLASS -->
+    <section id="strokegene-code">
+      <h2><span class="section-num">3</span> The StrokeGene Class</h2>
+      <p>
+        Let's inspect <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/StrokeGene.kt"><code>StrokeGene.kt</code></a> in your project. Each gene captures geometry, stroke width, and 32-bit RGBA color:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/main/kotlin/StrokeGene.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">package org.jetbrains.skia
+
+data class StrokeGene(
+    val x0: Float,
+    val y0: Float,
+    val xc: Float,
+    val yc: Float,
+    val x1: Float,
+    val y1: Float,
+    val strokeWidth: Float,
+    val r: Int,
+    val g: Int,
+    val b: Int,
+    val a: Int,
+) {
+    fun render(
+        canvas: Canvas,
+        paint: Paint,
+        path: Path,
+    ) {
+        paint.color = Color.makeARGB(a, r, g, b)
+        paint.strokeWidth = strokeWidth
+        paint.mode = PaintMode.STROKE
+        paint.strokeCap = PaintStrokeCap.ROUND
+        paint.isAntiAlias = true
+
+        path.reset()
+        path.moveTo(x0, y0)
+        path.quadTo(xc, yc, x1, y1)
+        canvas.drawPath(path, paint)
+    }
+}</code></pre>
+      </div>
+      <div class="callout">
+        <div class="callout-title">⚡ Performance Note: Buffer Reuse</div>
+        Notice that <code>render()</code> accepts pre-allocated instances of <code>Paint</code> and <code>Path</code> rather than creating new ones inside each call. In genetic programming where thousands of evaluations occur per second, allocating temporary objects inside the render path triggers JVM Garbage Collection pauses. Reusing mutable buffers maintains 60+ FPS rendering and maximizes evolutionary throughput.
+      </div>
+    </section>
+
+    <!-- SECTION 4: THE PAINTING CHROMOSOME -->
+    <section id="painting-chromosome">
+      <h2><span class="section-num">4</span> The Painting Chromosome</h2>
+      <p>
+        An individual artwork candidate is represented in <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Painting.kt"><code>Painting.kt</code></a> as a list of strokes:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/main/kotlin/Painting.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">data class Painting(
+    val strokes: List<StrokeGene>,
+    val error: Long = Long.MAX_VALUE,
+) {
+    fun render(
+        canvas: Canvas,
+        width: Float,
+        height: Float,
+        paint: Paint,
+        path: Path,
+        backgroundColor: Int = Color.WHITE,
+    ) {
+        // 1. Draw base coat
+        paint.color = backgroundColor
+        paint.mode = PaintMode.FILL
+        canvas.drawRect(Rect.makeWH(width, height), paint)
+
+        // 2. Draw brush strokes in sequential order
+        for (stroke in strokes) {
+            stroke.render(canvas, paint, path)
+        }
+    }
+}</code></pre>
+      </div>
+      <p>
+        <strong>Order matters!</strong> Because strokes are rendered with alpha transparency (<code>a &lt; 255</code>), overlapping strokes blend optically. Drawing stroke A before stroke B yields a different final pixel buffer than drawing stroke B before stroke A.
+      </p>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE STROKE SANDBOX -->
+    <section id="interactive-sandbox">
+      <h2><span class="section-num">5</span> Interactive Stroke Sandbox</h2>
+      <p>
+        Experiment with Bézier control points, stroke width, and alpha blending below. Drag the blue control point to see how the stroke curves in real time:
+      </p>
+      <div class="sandbox-container">
+        <div class="sandbox-viewport">
+          <div class="canvas-wrapper">
+            <canvas id="strokeCanvas" width="480" height="260"></canvas>
+          </div>
+          <div class="sandbox-controls">
+            <div class="control-group">
+              <label>Stroke Width: <span id="valWidth">16px</span></label>
+              <input type="range" id="paramWidth" min="2" max="64" value="16">
+            </div>
+            <div class="control-group">
+              <label>Opacity (Alpha): <span id="valAlpha">140</span></label>
+              <input type="range" id="paramAlpha" min="15" max="255" value="140">
+            </div>
+            <div class="control-group">
+              <label>Color Hue: <span id="valHue">260&deg;</span></label>
+              <input type="range" id="paramHue" min="0" max="360" value="260">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: MUTATION OPERATORS -->
+    <section id="mutation-operators">
+      <h2><span class="section-num">6</span> Stochastic Mutation Operators</h2>
+      <p>
+        How do we create variation without destroying established structure? In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Painting.kt"><code>Painting.kt</code></a>, the <code>mutate()</code> method applies small probabilistic perturbations:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Mutation Operators in Painting.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">fun mutate(width: Float, height: Float): Painting {
+    val newStrokes = strokes.toMutableList()
+    val roll = Random.nextFloat()
+
+    when {
+        // 75% chance: Mutate an existing stroke's parameters
+        roll < 0.75f -> {
+            val idx = Random.nextInt(newStrokes.size)
+            newStrokes[idx] = newStrokes[idx].mutate(width, height)
+        }
+        // 15% chance: Swap order of two strokes (layering change)
+        roll < 0.90f -> {
+            val i = Random.nextInt(newStrokes.size)
+            val j = Random.nextInt(newStrokes.size)
+            Collections.swap(newStrokes, i, j)
+        }
+        // 10% chance: Replace a stroke completely with random one
+        else -> {
+            val idx = Random.nextInt(newStrokes.size)
+            newStrokes[idx] = StrokeGene.random(width, height)
+        }
+    }
+    return Painting(newStrokes)
+}</code></pre>
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">💡 Why Keep Mutation Steps Small?</div>
+        If you mutate too aggressively (e.g., throwing strokes to completely random coordinates on every generation), the evolutionary algorithm behaves like random guessing, and the acceptance rate drops below 1%. Small, localized perturbations allow the hill climber to fine-tune subtle gradients and edge alignments.
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Test your understanding of genotype representation and rendering performance.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Why does StrokeGene.render() accept existing Paint and Path objects as arguments?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Skia allows instantiating Paint inside any method, but doing so frequently causes GC overhead.">To satisfy Skia language limitations.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Reusing mutable objects avoids thousands of allocations per second, eliminating GC stutter.">To prevent frequent garbage collection.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Painting order is governed by list index iteration, not buffer parameter passing.">To preserve stroke drawing order.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Metal hardware shaders are managed internally regardless of object allocation patterns.">To activate hardware Metal shaders.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>Read Roger Alsing's original article: <a href="https://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/" target="_blank" rel="noopener">"Genetic Programming: Evolution of Mona Lisa"</a>. Alsing popularized approximating famous artwork using 50 semi-transparent polygons, laying the groundwork for our curved stroke approach.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>Want to see what happens when you adjust the mutation probabilities or stroke counts in Kotlin? Ask in chat, and we can run experiments right from the command line!</p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0001-skiko-desktop-foundations.html" class="nav-btn">⬅ Lesson 1: Skiko Foundations</a>
+        <a href="0003-offscreen-fitness-evaluation.html" class="nav-btn">Next: Lesson 3 – Headless Fitness Evaluation ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Language Support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <!-- Interactive Sandbox & Copy Script -->
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // Interactive Bézier Canvas
+    const canvas = document.getElementById('strokeCanvas');
+    const ctx = canvas.getContext('2d');
+    const widthSlider = document.getElementById('paramWidth');
+    const alphaSlider = document.getElementById('paramAlpha');
+    const hueSlider = document.getElementById('paramHue');
+
+    let p0 = { x: 70, y: 190 };
+    let pc = { x: 240, y: 50 };
+    let p1 = { x: 410, y: 190 };
+    let draggingControl = false;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Canvas background
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw faint control tangents
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(pc.x, pc.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Bézier Brush Stroke
+      const strokeWidth = parseFloat(widthSlider.value);
+      const alpha = parseInt(alphaSlider.value) / 255;
+      const hue = parseInt(hueSlider.value);
+
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.quadraticCurveTo(pc.x, pc.y, p1.x, p1.y);
+      ctx.strokeStyle = `hsla(${hue}, 80%, 55%, ${alpha})`;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Draw Handle Knobs
+      drawHandle(p0.x, p0.y, '#64748b', 'P0');
+      drawHandle(pc.x, pc.y, '#7c4dff', 'Control Pt', true);
+      drawHandle(p1.x, p1.y, '#64748b', 'P1');
+    }
+
+    function drawHandle(x, y, color, label, isControl = false) {
+      ctx.beginPath();
+      ctx.arc(x, y, isControl ? 9 : 6, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillStyle = '#475569';
+      ctx.fillText(label, x - 15, y - 12);
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const dist = Math.hypot(mx - pc.x, my - pc.y);
+      if (dist < 20) {
+        draggingControl = true;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (draggingControl) {
+        const rect = canvas.getBoundingClientRect();
+        pc.x = Math.max(20, Math.min(canvas.width - 20, e.clientX - rect.left));
+        pc.y = Math.max(20, Math.min(canvas.height - 20, e.clientY - rect.top));
+        draw();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      draggingControl = false;
+    });
+
+    [widthSlider, alphaSlider, hueSlider].forEach(slider => {
+      slider.addEventListener('input', () => {
+        document.getElementById('valWidth').textContent = `${widthSlider.value}px`;
+        document.getElementById('valAlpha').textContent = alphaSlider.value;
+        document.getElementById('valHue').textContent = `${hueSlider.value}°`;
+        draw();
+      });
+    });
+
+    draw();
+  </script>
+</body>
+</html>

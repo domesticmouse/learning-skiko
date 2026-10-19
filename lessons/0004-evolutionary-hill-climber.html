@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 4: The Evolutionary Loop & Hill Climber Strategy</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .loop-diagram {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+    .loop-step {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .loop-step .step-badge {
+      background: var(--accent-color);
+      color: #fff;
+      font-weight: bold;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .loop-arrow {
+      color: var(--text-muted);
+      font-size: 1.25rem;
+    }
+    .sim-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .sim-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .sim-metric {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+    .sim-metric .val {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: var(--highlight);
+    }
+    .sim-metric .lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .sim-btn-group {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+    .sim-btn {
+      background: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .sim-btn:hover {
+      opacity: 0.9;
+    }
+    .sim-btn.secondary {
+      background: #334155;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html" class="active">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#hill-climber">1. The (1+1) Hill Climber</a></li>
+        <li><a href="#worker-thread">2. Asynchronous Worker Thread</a></li>
+        <li><a href="#atomic-state">3. Lock-Free Atomic State</a></li>
+        <li><a href="#painter-code">4. The GeneticPainter Engine</a></li>
+        <li><a href="#interactive-sim">5. In-Browser Evolution Simulator</a></li>
+        <li><a href="#convergence">6. Convergence Phases</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 4 &bull; Evolutionary Algorithm</div>
+      <h1>The Evolutionary Loop & Hill Climber Strategy</h1>
+      <p class="lead">
+        Implement an asynchronous (1+1) Evolutionary Strategy in Kotlin, coordinate lock-free state across background worker threads, and understand genetic convergence dynamics.
+      </p>
+    </header>
+
+    <!-- SECTION 1: HILL CLIMBER -->
+    <section id="hill-climber">
+      <h2><span class="section-num">1</span> The (1+1) Hill Climber Strategy</h2>
+      <p>
+        In classic genetic algorithms for symbolic optimization, you typically maintain a population of hundreds of candidates and apply <strong>sexual crossover</strong> (slicing two genomes in half and splicing them together).
+      </p>
+      <p>
+        However, for image approximation with hundreds of semi-transparent vector strokes, crossover is disastrous: stroke #42 from Parent A was tuned to blend specifically over strokes #1–41 of Parent A. Splicing it into Parent B produces visual disharmony and sharp fitness regressions.
+      </p>
+      <p>
+        Instead, the gold standard in evolutionary art is the <strong>(1+1) Evolutionary Strategy</strong> (also known as a stochastic hill climber with mutation):
+      </p>
+
+      <div class="loop-diagram">
+        <div class="loop-step">
+          <div class="step-badge">1</div>
+          <div><strong>Champion</strong><br><small>Maintain current best painting candidate.</small></div>
+        </div>
+        <div class="loop-arrow">&#11015;</div>
+        <div class="loop-step">
+          <div class="step-badge">2</div>
+          <div><strong>Stochastic Mutation</strong><br><small>Clone champion and mutate a single gene or stroke order.</small></div>
+        </div>
+        <div class="loop-arrow">&#11015;</div>
+        <div class="loop-step">
+          <div class="step-badge">3</div>
+          <div><strong>Offscreen Evaluation</strong><br><small>Compute L1 pixel difference against target image.</small></div>
+        </div>
+        <div class="loop-arrow">&#11015;</div>
+        <div class="loop-step">
+          <div class="step-badge">4</div>
+          <div><strong>Selection Decision</strong><br><small>If mutant error &le; champion error, mutant becomes new champion! Else discard.</small></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: WORKER THREAD -->
+    <section id="worker-thread">
+      <h2><span class="section-num">2</span> Multi-Threaded Architecture</h2>
+      <p>
+        In a graphical desktop app, the <strong>AWT Event Dispatch Thread (EDT)</strong> is responsible for handling OS window events, keyboard shortcuts, and rendering frames at 60 FPS.
+      </p>
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Never Run Evolution on the UI Thread!</div>
+        If you run the evolutionary loop on the main UI thread, your desktop window will immediately freeze and stop responding to mouse or keyboard events.
+      </div>
+      <p>
+        We spawn an independent, high-priority background worker thread:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Worker Thread Spawning</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">thread(name = "genetic-worker", isDaemon = true) {
+    while (running.get()) {
+        if (paused.get()) {
+            Thread.sleep(20)
+            continue
+        }
+        step()
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 3: ATOMIC STATE -->
+    <section id="atomic-state">
+      <h2><span class="section-num">3</span> Lock-Free State Synchronization</h2>
+      <p>
+        Because the worker thread generates thousands of mutations per second while the UI thread reads the current best painting at 60 FPS, we must prevent race conditions without using heavy, blocking locks.
+      </p>
+      <p>
+        Kotlin and the JVM provide lock-free <code>java.util.concurrent.atomic</code> primitives:
+      </p>
+      <ul>
+        <li><code>AtomicBoolean</code>: Used for <code>running</code> and <code>paused</code> control flags.</li>
+        <li><code>AtomicLong</code>: Used for <code>generations</code>, <code>acceptedMutations</code>, and <code>currentEvalsPerSec</code>.</li>
+        <li><code>AtomicReference&lt;Painting&gt;</code>: Holds the pointer to the latest accepted champion painting. The UI thread reads this pointer with zero synchronization locks:</li>
+      </ul>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Lock-Free Atomic Reference</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">private val bestPaintingRef = AtomicReference<Painting>()
+
+fun getBestPainting(): Painting = bestPaintingRef.get()
+
+private fun updateBestPainting(newChampion: Painting) {
+    bestPaintingRef.set(newChampion)
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 4: PAINTER CODE -->
+    <section id="painter-code">
+      <h2><span class="section-num">4</span> The GeneticPainter Engine</h2>
+      <p>
+        Examine <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/GeneticPainter.kt"><code>GeneticPainter.kt</code></a> in your project:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/main/kotlin/GeneticPainter.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">class GeneticPainter(
+    val target: TargetImage,
+    initialStrokeCount: Int = 120,
+) {
+    private val evaluator = Evaluator(target.width, target.height, target.pixelBytes)
+    private val bestPaintingRef = AtomicReference<Painting>()
+
+    fun step() {
+        val champion = bestPaintingRef.get()
+
+        // 1. Mutate
+        val mutant = champion.mutate(target.width.toFloat(), target.height.toFloat())
+
+        // 2. Evaluate fitness
+        val mutantError = evaluator.evaluate(mutant)
+
+        // 3. Selection
+        if (mutantError <= champion.error) {
+            val acceptedPainting = mutant.copy(error = mutantError)
+            bestPaintingRef.set(acceptedPainting)
+            acceptedMutations.incrementAndGet()
+        }
+
+        generations.incrementAndGet()
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE SIM -->
+    <section id="interactive-sim">
+      <h2><span class="section-num">5</span> In-Browser Evolution Simulator</h2>
+      <p>
+        Experience the (1+1) Hill Climber dynamics in action. Watch how generation count, error reduction, and speed correlate:
+      </p>
+      <div class="sim-card">
+        <div class="sim-metrics">
+          <div class="sim-metric">
+            <div class="val" id="simGens">0</div>
+            <div class="lbl">Generations</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="simAccepted">0</div>
+            <div class="lbl">Accepted</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="simError">100.0%</div>
+            <div class="lbl">Error (Loss)</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="simRate">0.0%</div>
+            <div class="lbl">Acceptance %</div>
+          </div>
+        </div>
+        <div class="sim-btn-group">
+          <button class="sim-btn" id="btnToggleSim">Start Simulation</button>
+          <button class="sim-btn secondary" id="btnResetSim">Reset</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: CONVERGENCE -->
+    <section id="convergence">
+      <h2><span class="section-num">6</span> Understanding Convergence Phases</h2>
+      <p>
+        When you run the algorithm, you will observe distinct stages of convergence:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>🚀 Phase 1: Macro Approximation (0–5k gens)</h4>
+          <p>Acceptance rate is high (~15–30%). Large strokes cover the canvas, establishing the dominant color palette and rough silhouettes.</p>
+        </div>
+        <div class="card">
+          <h4>🔬 Phase 2: Micro Refinement (5k–100k+ gens)</h4>
+          <p>Acceptance rate drops to ~1–3%. Mutations fine-tune individual edge curves, subtle shading gradients, and highlight accents.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Check your storage strength on concurrency and evolutionary strategy design.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Why is crossover omitted in favor of a (1+1) mutation strategy for vector art?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Kotlin standard libraries support crossover operations cleanly.">Kotlin collections lack crossover support.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Evaluating mutants is equally fast regardless of whether crossover occurred.">Crossover doubles fitness evaluation time.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Splicing strokes destroys the delicate layering dependencies developed by each parent.">Splicing strokes destroys visual layering.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Atomic primitives operate independently of the algorithm reproduction scheme.">Atomic references cannot synchronize populations.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>Explore Ingo Rechenberg and Hans-Paul Schwefel's foundational work on <a href="https://en.wikipedia.org/wiki/Evolution_strategy" target="_blank" rel="noopener">Evolution Strategies (1+1 ES)</a>. Understanding Schwefel's 1/5th success rule provides deep insight into optimizing mutation step sizes.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>Want to see the telemetry output from the worker thread in your terminal? Ask in chat, and we can inspect the Kotlin worker loop together!</p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0003-offscreen-fitness-evaluation.html" class="nav-btn">⬅ Lesson 3: Headless Fitness Evaluation</a>
+        <a href="0005-realtime-visualization-hud.html" class="nav-btn">Next: Lesson 5 – Real-Time HUD & Controls ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // In-browser Hill Climber Simulator
+    let simRunning = false;
+    let simGens = 0;
+    let simAccepted = 0;
+    let currentError = 1.0;
+    let simInterval = null;
+
+    const btnToggle = document.getElementById('btnToggleSim');
+    const btnReset = document.getElementById('btnResetSim');
+    const elGens = document.getElementById('simGens');
+    const elAccepted = document.getElementById('simAccepted');
+    const elError = document.getElementById('simError');
+    const elRate = document.getElementById('simRate');
+
+    btnToggle.addEventListener('click', () => {
+      simRunning = !simRunning;
+      if (simRunning) {
+        btnToggle.textContent = 'Pause Simulation';
+        btnToggle.style.backgroundColor = '#f59e0b';
+        simInterval = setInterval(runStep, 16);
+      } else {
+        btnToggle.textContent = 'Resume Simulation';
+        btnToggle.style.backgroundColor = '#7c4dff';
+        clearInterval(simInterval);
+      }
+    });
+
+    btnReset.addEventListener('click', () => {
+      simRunning = false;
+      clearInterval(simInterval);
+      btnToggle.textContent = 'Start Simulation';
+      btnToggle.style.backgroundColor = '#7c4dff';
+      simGens = 0;
+      simAccepted = 0;
+      currentError = 1.0;
+      updateUI();
+    });
+
+    function runStep() {
+      // Simulate 20 generations per frame
+      for (let i = 0; i < 20; i++) {
+        simGens++;
+        // Acceptance chance decays as error gets smaller
+        const acceptanceChance = Math.max(0.015, Math.pow(currentError, 1.8) * 0.25);
+        if (Math.random() < acceptanceChance) {
+          simAccepted++;
+          currentError *= (1.0 - (Math.random() * 0.008 + 0.001));
+        }
+      }
+      updateUI();
+    }
+
+    function updateUI() {
+      elGens.textContent = simGens.toLocaleString();
+      elAccepted.textContent = simAccepted.toLocaleString();
+      elError.textContent = (currentError * 100).toFixed(1) + '%';
+      const rate = simGens > 0 ? (simAccepted / simGens * 100).toFixed(1) : '0.0';
+      elRate.textContent = rate + '%';
+    }
+  </script>
+</body>
+</html>

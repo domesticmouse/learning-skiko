@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skiko & Genetic Art Reference Sheet</title>
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+  <style>
+    body {
+      display: block;
+      padding: 2.5rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .ref-section {
+      margin-bottom: 2.5rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid var(--card-border);
+      padding: 0.75rem 1rem;
+      text-align: left;
+    }
+    th {
+      background-color: var(--card-bg);
+      color: #fff;
+    }
+    tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+    @media print {
+      body {
+        background: #fff;
+        color: #000;
+        padding: 0;
+      }
+      th, td {
+        border-color: #ddd;
+      }
+      th {
+        background-color: #f3f4f6;
+        color: #000;
+      }
+      code {
+        color: #000;
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Skiko & Genetic Art Quick Reference</h1>
+    <p class="lead">Cheat sheet and quick-reference guide for standalone Skiko desktop rendering and (1+1) Hill Climber evolutionary art.</p>
+  </header>
+
+  <div class="ref-section">
+    <h2>1. Essential CLI Commands</h2>
+    <table>
+      <thead>
+        <tr><th>Action</th><th>Command</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Run with Procedural Target</td><td><code>./gradlew run</code></td></tr>
+        <tr><td>Run with Custom Target Image</td><td><code>./gradlew run --args="path/to/image.png"</code></td></tr>
+        <tr><td>Format Kotlin Code (Ktlint)</td><td><code>./gradlew ktlintFormat</code></td></tr>
+        <tr><td>Verify Style & Lint</td><td><code>./gradlew ktlintCheck</code></td></tr>
+        <tr><td>Build Standalone Executable</td><td><code>./gradlew installDist</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ref-section">
+    <h2>2. Skia Core 2D Graphics API</h2>
+    <table>
+      <thead>
+        <tr><th>Operation</th><th>Method Call</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Allocate In-Memory Bitmap</td><td><code>val b = Bitmap().apply { allocN32Pixels(w, h) }</code></td></tr>
+        <tr><td>Bind Canvas to Bitmap</td><td><code>val c = Canvas(bitmap)</code></td></tr>
+        <tr><td>Quadratic Bézier Path</td><td><code>path.moveTo(x0, y0); path.quadTo(xc, yc, x1, y1)</code></td></tr>
+        <tr><td>Render Path to Canvas</td><td><code>canvas.drawPath(path, paint)</code></td></tr>
+        <tr><td>Extract Raw Pixel Bytes</td><td><code>bitmap.readPixels(bitmap.imageInfo)</code></td></tr>
+        <tr><td>Encode PNG to File</td><td><code>image.encodeToData(EncodedImageFormat.PNG)?.bytes</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ref-section">
+    <h2>3. The (1+1) Hill Climber Mathematical Engine</h2>
+    <table>
+      <thead>
+        <tr><th>Concept</th><th>Mathematical Formula / Definition</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Quadratic Bézier Curve</td><td>\( B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_c + t^2 P_1, \quad t \in [0, 1] \)</td></tr>
+        <tr><td>L1 Manhattan Error</td><td>\( \text{Loss} = \sum_{p \in \text{pixels}} (|R_{\text{cand}} - R_{\text{tgt}}| + |G_{\text{cand}} - G_{\text{tgt}}| + |B_{\text{cand}} - B_{\text{tgt}}|) \)</td></tr>
+        <tr><td>Selection Rule</td><td>Accept mutant if \(\text{Error}(\text{Mutant}) \le \text{Error}(\text{Champion})\), else reject.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ref-section">
+    <h2>4. Interactive Runtime Controls</h2>
+    <table>
+      <thead>
+        <tr><th>Key</th><th>Function</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>[SPACE]</code></td><td>Pause / Resume background evolutionary worker loop.</td></tr>
+        <tr><td><code>[R]</code></td><td>Reset chromosome population back to generation 0.</td></tr>
+        <tr><td><code>[+] / [-]</code></td><td>Dynamically increase or decrease stroke count by 10.</td></tr>
+        <tr><td><code>[S]</code></td><td>Save current champion painting to <code>evolved-painting.png</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

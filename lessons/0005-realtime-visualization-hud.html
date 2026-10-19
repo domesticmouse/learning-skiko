@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 5: Real-Time HUD & Interactive Controls</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .hud-mockup {
+      background: #141622;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      color: #ECEFF4;
+    }
+    .hud-header {
+      font-size: 1.15rem;
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+    .hud-sub {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 1.25rem;
+    }
+    .hud-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .hud-card {
+      background: #1E2132;
+      border: 1.5px solid #353B55;
+      border-radius: 8px;
+      padding: 1rem;
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .hud-tag {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+    }
+    .hud-dashboard {
+      background: #1E2132;
+      border: 1px solid #353B55;
+      border-radius: 10px;
+      padding: 1rem 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 1rem;
+    }
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .hud-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .hud-value {
+      font-size: 1.25rem;
+      font-weight: bold;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html" class="active">5. Real-Time HUD & Controls</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#dual-pane">1. Dual-Pane Architecture</a></li>
+        <li><a href="#skia-hud">2. Designing the Skia HUD</a></li>
+        <li><a href="#keyboard-controls">3. Interactive Keyboard Controls</a></li>
+        <li><a href="#png-export">4. Encoding & Saving PNGs</a></li>
+        <li><a href="#cli-execution">5. Running from the Command Line</a></li>
+        <li><a href="#retrieval-quiz">6. Knowledge Check</a></li>
+        <li><a href="#course-completion">7. Course Summary & Next Steps</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 5 &bull; UI & Interaction</div>
+      <h1>Real-Time Visualization & Interactive HUD Controls</h1>
+      <p class="lead">
+        Assemble the complete genetic art application: render real-time side-by-side comparisons, build an in-canvas telemetry HUD, handle live keyboard shortcuts, and export high-res artwork to PNG.
+      </p>
+    </header>
+
+    <!-- SECTION 1: DUAL PANE -->
+    <section id="dual-pane">
+      <h2><span class="section-num">1</span> Dual-Pane Side-by-Side Presentation</h2>
+      <p>
+        In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>Main.kt</code></a>, the <code>SkikoRenderDelegate.onRender()</code> method draws two primary viewports:
+      </p>
+      <ul>
+        <li><strong>Left Viewport</strong>: The immutable target image, rendered via <code>canvas.drawImageRect(target.image, targetRect)</code>.</li>
+        <li><strong>Right Viewport</strong>: The latest accepted champion painting, rendered dynamically into an offscreen display bitmap and blitted to screen.</li>
+      </ul>
+
+      <div class="hud-mockup">
+        <div class="hud-header">Genetic Algorithm: Brush Stroke Painter</div>
+        <div class="hud-sub">Target: Mona Lisa (256x256)</div>
+        <div class="hud-split">
+          <div class="hud-card">
+            <span class="hud-tag" style="color: var(--highlight);">TARGET IMAGE</span>
+            <div style="color: var(--text-muted); font-size: 0.9rem;">[ Target Bitmap ]</div>
+          </div>
+          <div class="hud-card">
+            <span class="hud-tag" style="color: var(--success);">EVOLVED PAINTING</span>
+            <div style="color: var(--text-muted); font-size: 0.9rem;">[ Evolving Brush Strokes ]</div>
+          </div>
+        </div>
+        <div class="hud-dashboard">
+          <div class="hud-item">
+            <span class="hud-label">Generations</span>
+            <span class="hud-value">48,210</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">Accepted</span>
+            <span class="hud-value" style="color: var(--success);">2,341</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">Improvement</span>
+            <span class="hud-value" style="color: var(--highlight);">76.4%</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">Speed</span>
+            <span class="hud-value">4,120 evals/s</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">Status</span>
+            <span class="hud-value" style="color: var(--success);">RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: SKIA HUD -->
+    <section id="skia-hud">
+      <h2><span class="section-num">2</span> Designing the In-Canvas Skia HUD</h2>
+      <p>
+        Rather than using standard Swing UI buttons which clash with hardware-accelerated canvases, the entire dashboard and telemetry panel is drawn directly in Skia using <code>RRect</code> (rounded rectangles) and Skia <code>Font</code>:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>HUD Rendering in Main.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">// Draw Rounded HUD Card
+val hudRect = Rect.makeXYWH(32f, hudY, w - 64f, 82f)
+canvas.drawRRect(RRect.makeXYWH(32f, hudY, w - 64f, 82f, 10f), cardPaint)
+canvas.drawRRect(RRect.makeXYWH(32f, hudY, w - 64f, 82f, 10f), borderPaint)
+
+// Render Real-Time Telemetry
+val gens = painter.generations.get()
+val accepted = painter.acceptedMutations.get()
+val evalsSec = painter.currentEvalsPerSec.get()
+val improvement = ((1.0 - error.toDouble() / initialErr.toDouble()) * 100.0).coerceAtLeast(0.0)
+
+canvas.drawString("GENERATIONS", col1, hudY + 28f, smallFont, textDimPaint)
+canvas.drawString("%,d".format(gens), col1, hudY + 54f, headerFont, textMainPaint)
+
+canvas.drawString("SPEED", col4, hudY + 28f, smallFont, textDimPaint)
+canvas.drawString("%,d evals/s".format(evalsSec), col4, hudY + 54f, headerFont, textMainPaint)</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 3: KEYBOARD CONTROLS -->
+    <section id="keyboard-controls">
+      <h2><span class="section-num">3</span> Interactive Keyboard Controls</h2>
+      <p>
+        By attaching a standard AWT <code>KeyAdapter</code> to the <code>JFrame</code>, the user can adjust simulation parameters without restarting the application:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h4><code>[SPACE]</code> Pause / Resume</h4>
+          <p>Toggles <code>painter.togglePause()</code>, freezing the background worker loop so you can inspect the current painting.</p>
+        </div>
+        <div class="card">
+          <h4><code>[R]</code> Reset</h4>
+          <p>Re-randomizes the entire chromosome back to generation 0, letting you restart evolution from a new seed.</p>
+        </div>
+        <div class="card">
+          <h4><code>[+] / [-]</code> Adjust Stroke Count</h4>
+          <p>Adds or removes 10 strokes dynamically, observing how chromosome complexity impacts visual fidelity.</p>
+        </div>
+        <div class="card">
+          <h4><code>[S]</code> Save PNG</h4>
+          <p>Encodes the current champion painting to a high-resolution lossless PNG file in the workspace directory.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: PNG EXPORT -->
+    <section id="png-export">
+      <h2><span class="section-num">4</span> Encoding & Saving Lossless PNGs</h2>
+      <p>
+        Skia includes native encoders for PNG, JPEG, and WebP. In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>Main.kt</code></a>, exporting the painting requires only 4 lines of code:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Exporting PNG with Skia</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">val saveBitmap = Bitmap().apply { allocN32Pixels(target.width, target.height) }
+val saveCanvas = Canvas(saveBitmap)
+currentChampion.render(saveCanvas, target.width.toFloat(), target.height.toFloat(), paint, path)
+
+val saveImage = Image.makeFromBitmap(saveBitmap)
+val data = saveImage.encodeToData(EncodedImageFormat.PNG)
+if (data != null) {
+    File("evolved-painting.png").writeBytes(data.bytes)
+    println("Saved painting to evolved-painting.png")
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 5: CLI EXECUTION -->
+    <section id="cli-execution">
+      <h2><span class="section-num">5</span> Running from the Command Line</h2>
+      <p>
+        Because your environment is completely configured for command-line development, you can execute the app and pass custom target images directly:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal (CLI Run Commands)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run with procedural geometric fallback target:
+./gradlew run
+
+# Run with your own target image file:
+./gradlew run --args="path/to/my-portrait.png"
+
+# Verify code formatting:
+./gradlew ktlintCheck</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 6: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">6</span> Knowledge Check</h2>
+      <p>Test your understanding of UI synchronization and image export.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Which Skiko method requests a new frame without blocking the UI thread?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Thread sleep pauses execution and induces visible UI frame stuttering.">The Thread.sleep() call.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="needRedraw() asynchronously signals the OS compositor that a repaint is needed.">The skiaLayer.needRedraw() call.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="allocN32Pixels allocates offscreen pixel memory, it does not request repaints.">The allocN32Pixels() method.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="encodeToData is the Skia image serialization method, not a repaint signal.">The encodeToData() method.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: COURSE COMPLETION -->
+    <section id="course-completion">
+      <h2><span class="section-num">7</span> Course Summary & Future Horizons</h2>
+      <div class="callout tip">
+        <div class="callout-title">🎉 Mission Accomplished!</div>
+        <p>You have deconstructed and mastered the complete stack for genetic art in Kotlin and Skiko:</p>
+        <ul>
+          <li><strong>Lesson 1:</strong> Scaffolding standalone Skiko apps from the CLI.</li>
+          <li><strong>Lesson 2:</strong> Modeling artistic chromosomes with Bézier curves.</li>
+          <li><strong>Lesson 3:</strong> High-throughput headless fitness evaluation.</li>
+          <li><strong>Lesson 4:</strong> Lock-free multi-threaded (1+1) Hill Climber.</li>
+          <li><strong>Lesson 5:</strong> In-canvas HUD rendering and interactive keyboard controls.</li>
+        </ul>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>You have a fully functioning evolutionary art laboratory! Ask your agent teacher in chat to experiment with polygon chromosomes, multi-threaded parallel evaluators, or custom color palettes whenever you're ready.</p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0004-evolutionary-hill-climber.html" class="nav-btn">⬅ Lesson 4: The Evolutionary Loop</a>
+        <a href="0001-skiko-desktop-foundations.html" class="nav-btn">Restart Curriculum: Lesson 1 ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

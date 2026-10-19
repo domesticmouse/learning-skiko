@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building a Kotlin Desktop App with Skiko (From the Command Line)</title>
+  
+  <!-- PrismJS CSS (Okaidia Dark Theme & Line Numbers) -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-color: #0f111a;
+      --card-bg: #1a1c29;
+      --card-border: #2e344e;
+      --accent-color: #7c4dff;
+      --accent-glow: rgba(124, 77, 255, 0.25);
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --code-bg: #13141f;
+      --highlight: #38bdf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.7;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    #sidebar {
+      width: 300px;
+      background-color: #141622;
+      border-right: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 2rem 1.25rem;
+      flex-shrink: 0;
+    }
+
+    #sidebar h2 {
+      font-size: 1.15rem;
+      color: #fff;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    #sidebar .badge {
+      font-size: 0.7rem;
+      background: var(--accent-color);
+      color: #fff;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    #sidebar ul {
+      list-style: none;
+    }
+
+    #sidebar li {
+      margin-bottom: 0.5rem;
+    }
+
+    #sidebar a {
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    #sidebar a:hover, #sidebar a.active {
+      color: #fff;
+      background-color: rgba(124, 77, 255, 0.15);
+      border-left: 3px solid var(--accent-color);
+    }
+
+    /* Main Content Container */
+    #content {
+      flex: 1;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 3rem 2.5rem 6rem;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #fff 30%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+    }
+
+    header .subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      background: #24283b;
+      border: 1px solid var(--card-border);
+      color: #c0caf5;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Section Styling */
+    section {
+      margin-bottom: 3.5rem;
+      scroll-margin-top: 2rem;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      color: #fff;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    h2 .section-num {
+      background: var(--accent-color);
+      color: #fff;
+      font-size: 0.9rem;
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    h3 {
+      font-size: 1.3rem;
+      color: #e2e8f0;
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: #cbd5e1;
+    }
+
+    /* Info Callouts */
+    .callout {
+      background-color: var(--card-bg);
+      border-left: 4px solid var(--accent-color);
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+      border-radius: 0 8px 8px 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .callout.tip {
+      border-left-color: var(--highlight);
+    }
+
+    .callout.warning {
+      border-left-color: var(--warning);
+    }
+
+    .callout-title {
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .callout.tip .callout-title { color: var(--highlight); }
+    .callout.warning .callout-title { color: var(--warning); }
+
+    /* Code blocks container */
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .code-header {
+      background-color: #1e2235;
+      padding: 0.5rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+
+    /* Prism Customization */
+    pre[class*="language-"] {
+      margin: 0 !important;
+      padding: 1.25rem !important;
+      background: var(--code-bg) !important;
+      font-size: 0.9rem !important;
+      line-height: 1.6 !important;
+      border-radius: 0 0 8px 8px !important;
+    }
+
+    code[class*="language-"] {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", Consolas, monospace !important;
+    }
+
+    /* Inline code */
+    :not(pre) > code {
+      background: #24283b;
+      color: #f7768e;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Interactive Live Demo Simulation Canvas */
+    .demo-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      text-align: center;
+    }
+
+    .demo-canvas {
+      background: #181825;
+      border: 1px solid #313244;
+      border-radius: 8px;
+      cursor: crosshair;
+      display: block;
+      margin: 1rem auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .demo-controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .btn {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    /* Architecture Diagram */
+    .arch-diagram {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.5rem 0;
+      flex-wrap: wrap;
+    }
+
+    .arch-node {
+      background: #1e2235;
+      border: 1px solid var(--accent-color);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .arch-arrow {
+      font-size: 1.5rem;
+      color: var(--highlight);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      body { flex-direction: column; }
+      #sidebar { width: 100%; height: auto; position: static; }
+      #content { padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li><a href="0001-skiko-desktop-foundations.html" class="active">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#intro">1. What is Skiko?</a></li>
+        <li><a href="#prereqs">2. Command-Line Prerequisites</a></li>
+        <li><a href="#project-setup">3. Setting Up Project (No IDE)</a></li>
+        <li><a href="#gradle-config">4. Gradle & Skiko Setup</a></li>
+        <li><a href="#how-skiko-works">5. The Skiko Architecture</a></li>
+        <li><a href="#writing-code">6. Writing the First App</a></li>
+        <li><a href="#interactive-demo">7. Live Skiko Simulation</a></li>
+        <li><a href="#cli-build-run">8. Building & Running in CLI</a></li>
+        <li><a href="#ktlint">9. Code Formatting & Ktlint</a></li>
+        <li><a href="#advanced-skia">10. Advanced Drawing Capabilities</a></li>
+        <li><a href="#troubleshooting">11. Common CLI Pitfalls</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <h1>Building a Kotlin Desktop App with Skiko</h1>
+      <p class="subtitle">A complete from-scratch tutorial for building high-performance 2D hardware-accelerated desktop apps from the command line without IntelliJ.</p>
+      <div class="badge-bar">
+        <span class="tag">Kotlin 2.1+</span>
+        <span class="tag">Skiko / Skia</span>
+        <span class="tag">CLI & Gradle</span>
+        <span class="tag">macOS / Linux / Windows</span>
+        <span class="tag">PrismJS Highlighted</span>
+      </div>
+    </header>
+
+    <!-- SECTION 1: WHAT IS SKIKO? -->
+    <section id="intro">
+      <h2><span class="section-num">1</span> What is Skiko?</h2>
+      <p>
+        <strong>Skiko</strong> (short for <em>Skia for Kotlin</em>) is an open-source library created by JetBrains that exposes multiplatform Kotlin bindings for <strong>Google Skia</strong>.
+      </p>
+      <p>
+        <strong>Skia</strong> is the industry-standard 2D vector graphics engine powering <em>Google Chrome</em>, <em>Android</em>, <em>Flutter</em>, and <em>Jetpack Compose / Compose Multiplatform</em>. With Skiko, you can draw directly onto a hardware-accelerated canvas (using Metal on macOS, DirectX on Windows, and OpenGL/Vulkan on Linux) with absolute precision and blistering speed.
+      </p>
+
+      <div class="arch-diagram">
+        <div class="arch-node">
+          <strong>Kotlin App</strong><br><small>Your Logic & Event Handlers</small>
+        </div>
+        <div class="arch-arrow">➔</div>
+        <div class="arch-node">
+          <strong>Skiko (SkiaLayer)</strong><br><small>Kotlin AWT/Swing Bindings</small>
+        </div>
+        <div class="arch-arrow">➔</div>
+        <div class="arch-node">
+          <strong>Skia C++ Engine</strong><br><small>Metal / DirectX / OpenGL</small>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Why use Skiko standalone without Compose?</div>
+        While Compose Multiplatform is built on top of Skiko, using Skiko standalone gives you direct, low-overhead access to raw 2D graphics primitives (canvases, paths, shaders, matrix transforms, particle systems, high-FPS game rendering) without the recomposition overhead of a declarative UI framework.
+      </div>
+    </section>
+
+    <!-- SECTION 2: COMMAND-LINE PREREQUISITES -->
+    <section id="prereqs">
+      <h2><span class="section-num">2</span> Command-Line Prerequisites</h2>
+      <p>Because you are developing strictly from the terminal without an IDE, you will need two tools: a <strong>Java Development Kit (JDK 17+)</strong> and <strong>Gradle</strong>.</p>
+
+      <h3>1. Check / Install Java</h3>
+      <p>On macOS (via Homebrew):</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal (macOS Homebrew)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Install OpenJDK
+brew install openjdk
+
+# Ensure Java is on your PATH and JAVA_HOME is configured:
+echo 'export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"' >> ~/.zshrc
+echo 'export JAVA_HOME="/opt/homebrew/opt/openjdk"' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify your installation
+java -version</code></pre>
+      </div>
+
+      <h3>2. Check / Install Gradle</h3>
+      <p>Gradle is the standard build tool used for Kotlin projects.</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># On macOS via Homebrew:
+brew install gradle
+
+# Check Gradle version:
+gradle -v</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 3: PROJECT SETUP (NO IDE) -->
+    <section id="project-setup">
+      <h2><span class="section-num">3</span> Setting Up the Project Directory</h2>
+      <p>Every standard Kotlin/Gradle project follows a predictable directory convention. Let's create our workspace and file tree completely from the shell:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># 1. Create your project directory and enter it
+mkdir -p ~/projects/skiko-desktop-demo
+cd ~/projects/skiko-desktop-demo
+
+# 2. Create the standard Kotlin source directory structure
+mkdir -p src/main/kotlin
+
+# 3. Create the necessary Gradle configuration files
+touch settings.gradle.kts
+touch build.gradle.kts
+touch src/main/kotlin/Main.kt</code></pre>
+      </div>
+
+      <p>Your directory tree now looks like this:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Directory Layout</span>
+        </div>
+        <pre><code class="language-properties">skiko-desktop-demo/
+├── settings.gradle.kts      # Project name & repository management
+├── build.gradle.kts         # Dependencies (Kotlin, Skiko, JVM target)
+└── src/
+    └── main/
+        └── kotlin/
+            └── Main.kt      # Main entry point & Skiko rendering logic</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 4: GRADLE & SKIKO SETUP -->
+    <section id="gradle-config">
+      <h2><span class="section-num">4</span> Configuring Gradle for Skiko</h2>
+      <p>First, specify the project name in <code>settings.gradle.kts</code>:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>settings.gradle.kts</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">rootProject.name = "skiko-desktop-demo"</code></pre>
+      </div>
+
+      <h3>Understanding Skiko Dependencies</h3>
+      <p>
+        Skiko is composed of two parts:
+      </p>
+      <ol style="margin-left: 2rem; margin-bottom: 1rem;">
+        <li><strong><code>org.jetbrains.skiko:skiko-awt</code></strong>: The Java/Kotlin API (classes like <code>Canvas</code>, <code>Paint</code>, <code>SkiaLayer</code>).</li>
+        <li><strong><code>org.jetbrains.skiko:skiko-awt-runtime-&lt;os&gt;-&lt;arch&gt;</code></strong>: The native compiled C++ binary containing Skia compiled for your specific OS and CPU architecture (e.g. <code>macos-arm64</code> for Apple Silicon, <code>macos-x64</code> for Intel Mac, <code>windows-x64</code>, <code>linux-x64</code>).</li>
+      </ol>
+
+      <p>Here is our complete, production-ready <code>build.gradle.kts</code> that automatically detects your OS and CPU architecture at build time:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>build.gradle.kts</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">plugins {
+    // 1. Apply the Kotlin JVM plugin
+    kotlin("jvm") version "2.1.0"
+    // 2. Apply the Application plugin for runnable CLI apps
+    application
+    // 3. Apply the ktlint plugin for code formatting & style checks
+    id("org.jlleitschuh.gradle.ktlint") version "12.2.0"
+}
+
+repositories {
+    mavenCentral()
+    // JetBrains Space repo where official Skiko builds are published
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+}
+
+val skikoVersion = "0.8.18"
+
+// 4. Dynamically detect the host OS
+val osName = System.getProperty("os.name")
+val targetOs =
+    when {
+        osName == "Mac OS X" -> "macos"
+        osName.startsWith("Win") -> "windows"
+        osName.startsWith("Linux") -> "linux"
+        else -> error("Unsupported OS: $osName")
+    }
+
+// 5. Dynamically detect the host CPU architecture
+val osArch = System.getProperty("os.arch")
+val targetArch =
+    when (osArch) {
+        "x86_64", "amd64" -> "x64"
+        "aarch64" -> "arm64"
+        else -> error("Unsupported architecture: $osArch")
+    }
+
+val skikoTarget = "$targetOs-$targetArch"
+
+kotlin {
+    jvmToolchain(21)
+}
+
+dependencies {
+    // Core Skiko AWT bindings
+    implementation("org.jetbrains.skiko:skiko-awt:$skikoVersion")
+    
+    // Platform-specific native binary runtime (e.g. skiko-awt-runtime-macos-arm64)
+    implementation("org.jetbrains.skiko:skiko-awt-runtime-$skikoTarget:$skikoVersion")
+}
+
+application {
+    // Defines the entry point when running `./gradlew run`
+    mainClass.set("MainKt")
+}
+
+ktlint {
+    version.set("1.5.0")
+    android.set(false)
+    outputToConsole.set(true)
+    reporters {
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.HTML)
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 5: HOW SKIKO WORKS -->
+    <section id="how-skiko-works">
+      <h2><span class="section-num">5</span> How Skiko Works Under the Hood</h2>
+      <p>
+        On desktop (JVM), Skiko integrates seamlessly with <strong>Java Swing / AWT</strong>. This is beneficial because Swing provides standard cross-platform window management, window borders, menus, and mouse/keyboard event loops.
+      </p>
+
+      <div class="callout">
+        <div class="callout-title">The Three Key Concepts</div>
+        <ul>
+          <li><strong><code>JFrame</code>:</strong> The operating system window container.</li>
+          <li><strong><code>SkiaLayer</code>:</strong> A specialized Swing component that hosts the GPU-accelerated Skia surface.</li>
+          <li><strong><code>SkikoRenderDelegate</code>:</strong> An interface containing the callback <code>onRender(canvas, width, height, nanoTime)</code> called whenever the frame needs to be drawn.</li>
+        </ul>
+      </div>
+
+      <p>
+        Inside <code>onRender</code>, you receive a Skia <code>Canvas</code>. Every drawing operation (such as <code>canvas.drawCircle(...)</code> or <code>canvas.drawString(...)</code>) is recorded and rendered directly by the GPU.
+      </p>
+    </section>
+
+    <!-- SECTION 6: WRITING THE FIRST APP -->
+    <section id="writing-code">
+      <h2><span class="section-num">6</span> Writing the First Skiko Application</h2>
+      <p>
+        Now let's implement <code>src/main/kotlin/Main.kt</code>. This sample creates an animated, interactive desktop application that:
+      </p>
+      <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+        <li>Opens an 800x600 window centered on screen</li>
+        <li>Renders a dark modern background</li>
+        <li>Draws a smooth pulsing animated circle using <code>nanoTime</code></li>
+        <li>Follows your mouse cursor smoothly across the canvas</li>
+        <li>Draws anti-aliased vector typography using Skia's <code>Font</code> and <code>Typeface</code></li>
+      </ul>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/main/kotlin/Main.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skiko.SkiaLayer
+import org.jetbrains.skiko.SkikoRenderDelegate
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Font
+import org.jetbrains.skia.Typeface
+import org.jetbrains.skia.Rect
+import java.awt.Dimension
+import java.awt.event.MouseEvent
+import java.awt.event.MouseMotionAdapter
+import javax.swing.JFrame
+import javax.swing.SwingUtilities
+import javax.swing.WindowConstants
+import kotlin.math.sin
+
+fun main() {
+    // 1. Swing UI creation must always be scheduled on the Event Dispatch Thread (EDT)
+    SwingUtilities.invokeLater {
+        val window = JFrame("Kotlin Desktop with Skiko").apply {
+            defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
+            preferredSize = Dimension(800, 600)
+        }
+
+        // Coordinates for interactive cursor tracking
+        var mouseX = 400f
+        var mouseY = 300f
+
+        // 2. Create the SkiaLayer
+        val skiaLayer = SkiaLayer()
+
+        // 3. Attach our custom render delegate
+        skiaLayer.renderDelegate = object : SkikoRenderDelegate {
+            // Allocate Paints and Fonts once outside the loop for high performance
+            val bgPaint = Paint().apply { color = 0xFF1E1E2E.toInt() }
+            val circlePaint = Paint().apply {
+                color = 0xFF89B4FA.toInt()
+                isAntiAlias = true
+            }
+            val glowPaint = Paint().apply {
+                color = 0x55F38BA8.toInt()
+                isAntiAlias = true
+            }
+            val textPaint = Paint().apply {
+                color = 0xFFCDD6F4.toInt()
+                isAntiAlias = true
+            }
+            val titleFont = Font().apply { size = 24f }
+            val subFont = Font().apply { size = 14f }
+
+            override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
+                // Clear the background
+                canvas.drawRect(Rect.makeWH(width.toFloat(), height.toFloat()), bgPaint)
+
+                // Compute smooth elapsed time animation
+                val seconds = nanoTime / 1_000_000_000.0
+                val pulse = (sin(seconds * 3.0).toFloat() + 1f) * 15f + 40f
+
+                // Draw outer glow and main interactive follower circle
+                canvas.drawCircle(mouseX, mouseY, pulse + 20f, glowPaint)
+                canvas.drawCircle(mouseX, mouseY, pulse, circlePaint)
+
+                // Draw high-DPI crisp vector text
+                canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, titleFont, textPaint)
+                canvas.drawString("Move your mouse around to interact with the hardware canvas.", 50f, 105f, subFont, textPaint)
+                canvas.drawString("Resolution: ${width}x${height}px | Time: ${String.format("%.1f", seconds)}s", 50f, height - 30f, subFont, textPaint)
+
+                // Request continuous redrawing for 60fps/120fps animation
+                skiaLayer.needRedraw()
+            }
+        }
+
+        // 4. Listen to mouse motion events
+        skiaLayer.addMouseMotionListener(object : MouseMotionAdapter() {
+            override fun mouseMoved(e: MouseEvent) {
+                mouseX = e.x.toFloat()
+                mouseY = e.y.toFloat()
+                skiaLayer.needRedraw()
+            }
+        })
+
+        // 5. Mount the SkiaLayer into the JFrame window
+        skiaLayer.attachTo(window.contentPane)
+        window.pack()
+        window.setLocationRelativeTo(null) // Center window on screen
+        window.isVisible = true
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 7: INTERACTIVE DEMO SIMULATION -->
+    <section id="interactive-demo">
+      <h2><span class="section-num">7</span> Live Skiko Canvas Simulation</h2>
+      <p>
+        Below is a browser-rendered simulation of the exact Skiko drawing loop implemented in <code>Main.kt</code>. Move your mouse over the canvas to experience how Skiko's <code>onRender</code> and <code>needRedraw()</code> loop behaves!
+      </p>
+
+      <div class="demo-box">
+        <canvas id="skikoSimCanvas" class="demo-canvas" width="700" height="400"></canvas>
+        <div class="demo-controls">
+          <button class="btn" onclick="toggleGlow()">Toggle Glow Effect</button>
+          <button class="btn" onclick="resetCenter()">Center Circle</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: CLI BUILD & RUN -->
+    <section id="cli-build-run">
+      <h2><span class="section-num">8</span> Building and Running From the CLI</h2>
+      <p>With our files in place, we can execute the application directly from the command line using Gradle.</p>
+
+      <h3>1. Generate the Gradle Wrapper</h3>
+      <p>The Gradle Wrapper ensures that anyone can run the project without needing Gradle pre-installed:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash">gradle wrapper</code></pre>
+      </div>
+
+      <h3>2. Run the App</h3>
+      <p>Run the application with one command:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash">./gradlew run</code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Running in the background or with custom arguments</div>
+        If you want to pass JVM memory limits or flags:
+        <pre><code class="language-bash">./gradlew run --args="--fullscreen" -Dorg.gradle.jvmargs="-Xmx1024m"</code></pre>
+      </div>
+
+      <h3>3. Building an Executable Distribution</h3>
+      <p>The <code>application</code> plugin provides a built-in task to package your app into a standalone tar/zip archive with startup shell scripts for macOS/Linux and <code>.bat</code> files for Windows:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Package the distribution
+./gradlew installDist
+
+# Run the packaged standalone executable
+./build/install/skiko-desktop-demo/bin/skiko-desktop-demo</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 9: CODE FORMATTING & LINTING (KTLINT) -->
+    <section id="ktlint">
+      <h2><span class="section-num">9</span> Code Formatting & Linting with Ktlint</h2>
+      <p>
+        When working outside of IntelliJ (such as in VS Code, Neovim, Helix, or standard terminal editors), you don't have IntelliJ's automatic <code>Cmd+Option+L</code> formatter running in the background. In the Kotlin ecosystem, <strong>ktlint</strong> is the industry-standard linter and formatter that adheres strictly to the official Kotlin coding conventions.
+      </p>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Why Ktlint?</div>
+        Ktlint operates on an <em>anti-bikeshedding</em> philosophy: it enforces official language rules with zero arguments over tabs vs spaces or brace styles, ensuring a consistent codebase across team members and CI pipelines.
+      </div>
+
+      <h3>1. Automated In-Place Formatting</h3>
+      <p>Run the formatting task to automatically fix indentation, spacing, multiline expressions, import order, and trailing commas across all <code>.kt</code> and <code>.gradle.kts</code> files:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash">./gradlew ktlintFormat</code></pre>
+      </div>
+
+      <h3>2. Verifying Code Style (Linting)</h3>
+      <p>Run the check task to scan your project for style violations without modifying any files (ideal for CI/CD checks):</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash">./gradlew ktlintCheck</code></pre>
+      </div>
+
+      <p>When violations are found, ktlint prints the exact file, line number, and rule violation to the console, and generates detailed HTML and plain-text reports in <code>build/reports/ktlint/</code>.</p>
+
+      <h3>3. Optional: Standalone CLI & Pre-commit Hooks</h3>
+      <p>You can also install ktlint directly on macOS via Homebrew to format files without running Gradle:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal (Homebrew CLI)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Install standalone ktlint CLI
+brew install ktlint
+
+# Format a file directly
+ktlint -F "src/**/*.kt"
+
+# Automatically install a Git pre-commit hook that prevents committing unformatted code
+ktlint installGitPreCommitHook</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 10: ADVANCED SKIA DRAWING CAPABILITIES -->
+    <section id="advanced-skia">
+      <h2><span class="section-num">10</span> Essential Skia API Quick Reference</h2>
+      <p>Here are common Skia drawing techniques you can plug into your <code>onRender</code> loop:</p>
+
+      <h3>1. Linear Gradient Shaders</h3>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Kotlin (Gradients)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Shader
+import org.jetbrains.skia.Point
+
+val gradientShader = Shader.makeLinearGradient(
+    x0 = 0f, y0 = 0f,
+    x1 = 400f, y1 = 400f,
+    colors = intArrayOf(0xFFf38ba8.toInt(), 0xFF89b4fa.toInt())
+)
+val gradientPaint = Paint().apply {
+    shader = gradientShader
+    isAntiAlias = true
+}
+
+canvas.drawRoundRect(50f, 50f, 350f, 250f, 20f, 20f, gradientPaint)</code></pre>
+      </div>
+
+      <h3>2. Custom Vector Paths & Curves</h3>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Kotlin (Paths)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Path
+
+val path = Path().apply {
+    moveTo(100f, 300f)
+    cubicTo(150f, 200f, 250f, 400f, 300f, 300f)
+    lineTo(300f, 350f)
+    closePath()
+}
+
+val strokePaint = Paint().apply {
+    color = 0xFFA6E3A1.toInt()
+    mode = org.jetbrains.skia.PaintMode.STROKE
+    strokeWidth = 4f
+    isAntiAlias = true
+}
+
+canvas.drawPath(path, strokePaint)</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 11: TROUBLESHOOTING & PITFALLS -->
+    <section id="troubleshooting">
+      <h2><span class="section-num">11</span> Common Command-Line Pitfalls</h2>
+
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Pitfall 1: "Unable to locate a Java Runtime" on macOS</div>
+        <p>When installing OpenJDK through Homebrew, macOS's system wrapper (<code>/usr/bin/java</code>) does not automatically recognize the Homebrew symlink unless you export <code>PATH</code> or create a system symlink:</p>
+        <pre><code class="language-bash">export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
+      </div>
+
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Pitfall 2: UnsatisfiedLinkError / Native Skiko Binary Mismatch</div>
+        <p>If you see <code>java.lang.UnsatisfiedLinkError: no skiko-macos-arm64 in java.library.path</code>, it means the runtime classifier in <code>build.gradle.kts</code> doesn't match your JVM. For example, if you run an x86_64 JVM under Rosetta on an M1/M2/M3 Mac, <code>os.arch</code> will be <code>x86_64</code> instead of <code>aarch64</code>. Always ensure your JDK architecture matches your native machine architecture.</p>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Pitfall 3: High-DPI / Retina Displays</div>
+        <p>Skiko handles DPI scaling automatically, but keep in mind that <code>width</code> and <code>height</code> passed to <code>onRender</code> are in physical pixels, while Swing event coordinates may be in logical points. <code>skiaLayer.contentScale</code> gives you the current pixel scaling factor (e.g. <code>2.0</code> on Retina screens).</p>
+    <!-- KNOWLEDGE CHECK & RETRIEVAL PRACTICE -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">12</span> Knowledge Check</h2>
+      <p>Test your storage strength on the core concepts before moving forward.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Which Skiko component is implemented to receive the frame repaint callback?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="SkiaPlatformAwtCanvas is not a valid callback interface in Skiko.">The SkiaPlatformAwtCanvas delegate.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Implementing SkikoRenderDelegate gives you the onRender(canvas, width, height, nanoTime) callback.">The SkikoRenderDelegate listener interface.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="SwingGraphics2DLayer is a standard AWT concept, not the Skiko repaint callback.">The SwingGraphics2DLayer component wrapper.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Metal hardware acceleration is managed internally by Skiko's native engine.">The MetalHardwareAccelerationContext class.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- RECOMMENDED PRIMARY SOURCE & AGENT ASSISTANCE -->
+    <section id="next-steps">
+      <h2><span class="section-num">13</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>Explore the official <a href="https://github.com/JetBrains/skiko" target="_blank" rel="noopener">JetBrains Skiko GitHub Repository</a> and the <a href="https://skia.org/docs/user/api/" target="_blank" rel="noopener">Google Skia C++ API Reference</a>. These primary sources document the native bindings and coordinate system semantics used throughout our upcoming lessons.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>Remember: You have an AI pair-programming teacher in your terminal. If anything in your build or environment is confusing, or if you encounter any unexpected Gradle output, simply ask in the chat!</p>
+      </div>
+
+      <div class="lesson-nav">
+        <div></div>
+        <a href="0002-vector-brush-strokes.html" class="nav-btn">Next: Lesson 2 – Vector Brush Strokes & Genes ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Language Support Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-properties.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-groovy.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <!-- Interactive Demo & Copy Script -->
+  <script>
+    // Copy Code functionality
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // Active Sidebar Scroll Spy
+    const sections = document.querySelectorAll('section');
+    const navLinks = document.querySelectorAll('#sidebar a');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop - 100;
+        if (pageYOffset >= sectionTop) {
+          current = section.getAttribute('id');
+        }
+      });
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // Skiko Simulation Canvas (HTML5 Canvas mimicking the exact Skiko render loop)
+    const canvas = document.getElementById('skikoSimCanvas');
+    const ctx = canvas.getContext('2d');
+    let mouseX = 350;
+    let mouseY = 200;
+    let showGlow = true;
+    let startTime = performance.now();
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+    });
+
+    function toggleGlow() {
+      showGlow = !showGlow;
+    }
+
+    function resetCenter() {
+      mouseX = canvas.width / 2;
+      mouseY = canvas.height / 2;
+    }
+
+    function renderLoop(now) {
+      const seconds = (now - startTime) / 1000;
+      const width = canvas.width;
+      const height = canvas.height;
+
+      // Clear Canvas (Skiko dark theme background)
+      ctx.fillStyle = '#1e1e2e';
+      ctx.fillRect(0, 0, width, height);
+
+      // Pulse calculation (sin-based pulse)
+      const pulse = (Math.sin(seconds * 3.0) + 1) * 15 + 40;
+
+      // Glow circle
+      if (showGlow) {
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, pulse + 20, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(243, 139, 168, 0.25)';
+        ctx.fill();
+      }
+
+      // Inner follower circle
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, pulse, 0, Math.PI * 2);
+      ctx.fillStyle = '#89b4fa';
+      ctx.fill();
+
+      // Text rendering
+      ctx.fillStyle = '#cdd6f4';
+      ctx.font = 'bold 20px -apple-system, sans-serif';
+      ctx.fillText('Hello from Skiko (Skia for Kotlin)!', 40, 50);
+
+      ctx.font = '14px -apple-system, sans-serif';
+      ctx.fillStyle = '#a6adc8';
+      ctx.fillText('Move your cursor over this canvas to interact in real-time.', 40, 80);
+
+      ctx.fillStyle = '#6c7086';
+      ctx.fillText(`Canvas: ${width}x${height}px | Time: ${seconds.toFixed(1)}s | 60 FPS`, 40, height - 25);
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    requestAnimationFrame(renderLoop);
+  </script>
+</body>
+</html>
