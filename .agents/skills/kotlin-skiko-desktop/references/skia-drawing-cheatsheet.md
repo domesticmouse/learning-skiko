@@ -67,6 +67,9 @@ val wavePath = Path().apply {
 canvas.drawPath(wavePath, fillPaint)
 ```
 
+> **Warning: `path.closePath()` vs `path.close()`**  
+> In Skiko, `Path.close()` implements Java's `AutoCloseable.close()`, which deletes the underlying C++ native Skia pointer (`_ptr = 0`). Subsequent draws cause a fatal native crash (`SIGSEGV in SkPath::isFinite()`). To close a geometric contour, **always use `path.closePath()`**, never `path.close()`.
+
 ---
 
 ## 4. Linear & Radial Gradients (Shaders)

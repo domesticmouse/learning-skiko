@@ -72,7 +72,7 @@ data class StrokeGene(
 To combine diverse geometries beyond simple parabolic arcs while preserving the zero-allocation hot loop, pass the evaluator's reusable `Paint` and `Path` into `Gene.render`:
 * **Cubic Béziers (`Path.cubicTo`)**: Two control handles ($P_1, P_2$) allow curvature inflection points (S-curves) essential for facial silhouettes and organic waves.
 * **Pressure-Tapered Calligraphy**: Modulate stroke width along the curve envelope ($w(t) = w_{\text{start}}(1-t) + w_{\text{peak}}\cdot 4t(1-t) + w_{\text{end}}t$) for ink and brush realism.
-* **Translucent Convex Polygons**: 3- to 6-vertex closed paths for low-poly or cubist stained-glass aesthetics. For $K \ge 4$ vertices, parameterize vertices in **polar coordinates** $(\theta_i, r_i)$ with sorted angles $0 \le \theta_1 < \theta_2 < \dots < \theta_K < 2\pi$ around a centroid $(c_x, c_y)$ so mutations never create self-intersecting "bowtie" polygons.
+* **Translucent Convex Polygons**: 3- to 6-vertex closed paths for low-poly or cubist stained-glass aesthetics. For $K \ge 4$ vertices, parameterize vertices in **polar coordinates** $(\theta_i, r_i)$ with sorted angles $0 \le \theta_1 < \theta_2 < \dots < \theta_K < 2\pi$ around a centroid $(c_x, c_y)$ so mutations never create self-intersecting "bowtie" polygons. **Critical**: Always close polygonal contours with `path.closePath()`. Never call `path.close()` (which invokes `AutoCloseable.close()`, frees the native C++ pointer, and causes `SIGSEGV in SkPath::isFinite()`).
 * **Skia Shaders (`Shader.makeLinearGradient`)**: Multi-stop gradient shaders applied to paints for soft atmospheric lighting and dual-tone transitions.
 
 ```kotlin
@@ -124,11 +124,12 @@ data class Painting(
 To evaluate 2,000–5,000+ candidates per second on the CPU:
 1. **Thread-Confine Mutable Skia Wrappers**: `Bitmap`, `Canvas`, `Paint`, and `Path` wrap mutable native C++ pointers (`_ptr`) and are **not thread-safe**. Allocate them once per `Evaluator` instance and give each worker thread its own private `Evaluator`.
 2. **Flat Byte Array L2 Sum of Squared Differences (SSD)**: `allocN32Pixels(width, height)` allocates 4 bytes per pixel (`BGRA_8888`). Stride by `i += 4`, square channel diffs (`db * db + dg * dg + dr * dr`), and accumulate into a 64-bit `Long` to prevent 32-bit overflow.
+   * **Receiver Scoping Trap**: Inside `Bitmap().apply { allocN32Pixels(width, height) }`, unqualified `width` and `height` resolve to `Bitmap.width` and `Bitmap.height` (`0, 0`). Always qualify explicitly: `allocN32Pixels(this@Evaluator.width, this@Evaluator.height)`.
 3. **Signed Byte Masking**: Kotlin `Byte` is signed ($-128 \dots 127$); always mask with `and 0xFF` before subtracting.
 
 ```kotlin
 class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
-    private val bitmap = Bitmap().apply { allocN32Pixels(width, height) }
+    private val bitmap = Bitmap().apply { allocN32Pixels(this@Evaluator.width, this@Evaluator.height) }
     private val canvas = Canvas(bitmap)
     private val paint = Paint()
     private val path = Path()
@@ -226,6 +227,8 @@ Distinguish **Step-Size Annealing** (cooling the mutation radius $\sigma(t)$ whi
    ```bash
    ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p timelapse.mp4
    ```
+8. **Headless Smoke Execution & Stepwise Testing**:
+   In headless CI or agent workflows, Swing GUI windows block execution. Implement a `--headless` command-line argument that runs a fixed generation budget (e.g., 500 generations) and writes an artifact to verify end-to-end correctness without an active display server. When maintaining progressive learning projects, scaffold milestones in sequential self-contained directories (`steps/0001-...`), verifying that each step independently passes `./gradlew ktlintCheck test` and `./gradlew run --args="--headless"`.
 
 See detailed theory, mathematical derivations, and fitness algorithms in:
 [`references/evolutionary-strategies-and-fitness.md`](./references/evolutionary-strategies-and-fitness.md).

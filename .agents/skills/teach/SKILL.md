@@ -129,6 +129,16 @@ When the user asks to turn an existing codebase or working application into a mu
      - Keep shared typography and component styles in `./assets/lesson-style.css`; limit inline `<style>` blocks to lesson-specific simulator layout rules.
      - Verify every `<div class="callout ...">` tag is closed before the next `<section>` (an unclosed callout swallows subsequent sections).
 
+9. **Stepwise Curriculum Verification & Runnable Codebases**:
+   When converting a curriculum into runnable exercises or verifying that each lesson generates working software:
+   - **Sequential Step Subdirectories**: Scaffold an isolated subdirectory under `./steps/` for each lesson (e.g., `./steps/0001-<lesson-slug>/`, `./steps/0002-<lesson-slug>/`). Each step directory must be completely self-contained with its own build files, wrapper scripts, sources, and tests.
+   - **Cumulative Build Progression**: Start at Lesson 1 and confirm that it compiles, passes style linting, passes unit tests, and executes a non-blocking smoke test (e.g., `./gradlew run --args="--headless"`). Once verified, copy that directory forward to the next lesson's directory, apply that lesson's increments, and verify again. Repeat across all lessons in sequence.
+   - **Incorporate Automated Tests Directly into Lessons**: Unit tests verifying the lesson's additions must not only reside in `src/test/`, but must be incorporated directly into the lesson HTML file:
+     - Add a dedicated "Automated Testing" section before the Knowledge Check.
+     - Add the section link to the lesson's sidebar navigation (`#sidebar .series-nav`).
+     - Provide complete, copyable test code with exact assertions and the terminal command to run them (e.g., `./gradlew test --tests "..."`).
+     - This gives learners self-efficacy, enabling them to test-drive their progress and confirm that their implementation works before moving forward.
+
 ## Assets
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets (with shared styles like `.math-card`), quiz widgets, simulators, diagram helpers, and anything else a second lesson could reuse.

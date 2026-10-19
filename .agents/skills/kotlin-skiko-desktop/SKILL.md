@@ -131,6 +131,11 @@ kotlin {
 dependencies {
     implementation("org.jetbrains.skiko:skiko-awt:$skikoVersion")
     implementation("org.jetbrains.skiko:skiko-awt-runtime-$skikoTarget:$skikoVersion")
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 application {
@@ -158,6 +163,8 @@ Skiko renders directly to a `SkiaLayer`, embedded inside a standard Java Swing `
 3. **Instantiate fonts via `Font().apply { size = 24f }`**; avoid `Typeface.makeDefault()` which is unavailable in recent Skiko builds.
 4. **Trigger continuous animations** by invoking `skiaLayer.needRedraw()`.
 5. **Offscreen rendering & image encoding**: Use `Bitmap().apply { allocN32Pixels(...) }`, `Canvas(bitmap)`, and `bitmap.readPixels(...)` for headless rendering, image processing, and evolutionary algorithms without a visible window.
+6. **Vector Path Closure (`path.closePath()` vs `path.close()`)**: Never call `path.close()` on a Skia `Path` to close a geometry contour. In Skiko's bindings, `Path.close()` implements Java's `AutoCloseable.close()`, which deletes the underlying C++ native pointer (`_ptr = 0`). Subsequent draw calls cause an immediate fatal `SIGSEGV in SkPath::isFinite()`. Always use `path.closePath()`.
+7. **Receiver Scoping Trap in `Bitmap().apply`**: Inside `Bitmap().apply { allocN32Pixels(width, height) }`, unqualified `width` and `height` resolve to `Bitmap.width` and `Bitmap.height` (which are both `0`), silently allocating an empty `0x0` bitmap. Always qualify outer dimensions explicitly: `allocN32Pixels(this@MyClass.width, this@MyClass.height)` or pass distinct parameter names.
 
 See the complete working reference in [`examples/Main.kt`](./examples/Main.kt).
 
@@ -178,15 +185,22 @@ Validate style and auto-format files before building:
 ./gradlew ktlintCheck
 ```
 
-### 2. Compile and Run
+### 2. Automated Unit Tests
+```bash
+# Execute test suite:
+./gradlew test
+```
+
+### 3. Compile and Run
 ```bash
 # Compile Kotlin sources:
 ./gradlew compileKotlin
 
-# Run application (default):
+# Run application (default GUI mode):
 ./gradlew run
 
-# Run application with CLI arguments:
+# Run application with CLI arguments or headless smoke verification:
+./gradlew run --args="--headless"
 ./gradlew run --args="path/to/image.png"
 
 # Package distribution into build/install/my-skiko-app/
