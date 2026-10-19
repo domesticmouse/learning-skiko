@@ -27,6 +27,10 @@ val targetArch = when (osArch) {
 
 val skikoTarget = "$targetOs-$targetArch"
 
+kotlin {
+    jvmToolchain(21)
+}
+
 dependencies {
     implementation("org.jetbrains.skiko:skiko-awt:$skikoVersion")
     implementation("org.jetbrains.skiko:skiko-awt-runtime-$skikoTarget:$skikoVersion")

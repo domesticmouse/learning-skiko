@@ -38,8 +38,8 @@ fun main() {
                 color = 0xFFCDD6F4.toInt()
                 isAntiAlias = true
             }
-            val font = Font(Typeface.makeDefault(), 24f)
-            val subFont = Font(Typeface.makeDefault(), 14f)
+            val font = Font().apply { size = 24f }
+            val subFont = Font().apply { size = 14f }
 
             override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
                 // Clear background
