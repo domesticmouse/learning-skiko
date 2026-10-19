@@ -117,3 +117,61 @@ val scale = skiaLayer.contentScale // e.g. 2.0 on Retina
 ```
 - `width` and `height` received in `onRender(canvas, width, height, nanoTime)` are physical device pixels.
 - Mouse events in Swing `MouseEvent` report logical points. Multiply by `skiaLayer.contentScale` if you need exact physical pixel coordinates.
+
+---
+
+## 7. Offscreen Rendering & Direct Pixel Access
+
+Render graphics to an offscreen buffer (e.g. for computer vision, AI/GA fitness evaluation, or thumbnail generation) without touching a window:
+
+```kotlin
+import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+
+// 1. Allocate an offscreen raster bitmap
+val bitmap = Bitmap().apply { allocN32Pixels(256, 256) }
+val offscreenCanvas = Canvas(bitmap)
+
+// 2. Draw standard Skia elements
+offscreenCanvas.clear(Color.WHITE)
+offscreenCanvas.drawCircle(128f, 128f, 64f, fillPaint)
+
+// 3. Extract raw pixel bytes (BGRA/RGBA, 4 bytes per pixel)
+val pixelBytes: ByteArray = bitmap.readPixels(bitmap.imageInfo)!!
+```
+
+---
+
+## 8. Image Loading, Scaling & Saving
+
+### Loading Images (PNG, JPEG, WEBP)
+```kotlin
+import org.jetbrains.skia.Image
+import java.io.File
+
+val fileBytes = File("photo.png").readBytes()
+val loadedImage = Image.makeFromEncoded(fileBytes)
+```
+
+### Scaling Images onto Canvas
+```kotlin
+import org.jetbrains.skia.Rect
+
+// Draw and scale image into a specific bounding box
+val dstRect = Rect.makeXYWH(x = 50f, y = 50f, w = 256f, h = 256f)
+canvas.drawImageRect(loadedImage, dstRect)
+```
+
+### Saving Canvas/Bitmap to Disk (PNG / JPEG)
+```kotlin
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.EncodedImageFormat
+import java.io.File
+
+val snapshotImage = Image.makeFromBitmap(bitmap)
+val encodedData = snapshotImage.encodeToData(EncodedImageFormat.PNG, quality = 100)
+if (encodedData != null) {
+    File("output.png").writeBytes(encodedData.bytes)
+}
+```

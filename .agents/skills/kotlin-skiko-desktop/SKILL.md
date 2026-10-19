@@ -151,10 +151,11 @@ Skiko renders directly to a `SkiaLayer`, embedded inside a standard Java Swing `
 2. **Allocate `Paint` and `Font` objects once** in your render delegate, not inside `onRender()`, to prevent GC pauses during 60/120 FPS animation.
 3. **Instantiate fonts via `Font().apply { size = 24f }`**; avoid `Typeface.makeDefault()` which is unavailable in recent Skiko builds.
 4. **Trigger continuous animations** by invoking `skiaLayer.needRedraw()`.
+5. **Offscreen rendering & image encoding**: Use `Bitmap().apply { allocN32Pixels(...) }`, `Canvas(bitmap)`, and `bitmap.readPixels(...)` for headless rendering, image processing, and evolutionary algorithms without a visible window.
 
 See the complete working reference in [`examples/Main.kt`](./examples/Main.kt).
 
-For drawing paths, linear gradients, shapes, and high-DPI handling, consult:
+For drawing paths, linear gradients, shapes, offscreen rendering, image loading/saving, and high-DPI handling, consult:
 [`references/skia-drawing-cheatsheet.md`](./references/skia-drawing-cheatsheet.md).
 
 ---
@@ -176,8 +177,11 @@ Validate style and auto-format files before building:
 # Compile Kotlin sources:
 ./gradlew compileKotlin
 
-# Run application:
+# Run application (default):
 ./gradlew run
+
+# Run application with CLI arguments:
+./gradlew run --args="path/to/image.png"
 
 # Package distribution into build/install/my-skiko-app/
 ./gradlew installDist
