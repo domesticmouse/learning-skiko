@@ -4,8 +4,9 @@ description: >-
   Design, build, and optimize evolutionary and genetic algorithm art generators
   using Skiko (Skia for Kotlin). Use when creating procedural/evolutionary image
   generators, evolving brush strokes or geometric polygons to approximate images,
-  implementing (1+λ) Hill Climber evolutionary strategies, performing fast offscreen
-  raster fitness evaluation, or streaming live evolutionary progress in a Skiko desktop UI.
+  implementing (1+λ) Hill Climber evolutionary strategies, multi-core island models,
+  performing fast offscreen raster fitness evaluation, CIELAB/Sobel perceptual fitness,
+  parsimony constraints, SVG vector export, or streaming live evolutionary progress in a Skiko desktop UI.
 ---
 
 # Genetic Art with Skiko Guide
@@ -124,11 +125,16 @@ class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
 }
 ```
 
+### Advanced Fitness Objectives
+* **Perceptual Color Distance**: Use CIELAB $\Delta E$ lookup tables instead of raw RGB to match human color sensitivity.
+* **Sobel Edge Weighting**: Precompute a 2D edge salience mask from the target image to weight errors at facial contours and fine lines higher than flat background areas.
+* **Parsimony Pressure**: Penalize excessive stroke counts ($\text{Error} + \alpha \cdot N_{\text{strokes}}$) to prevent overfitting and encourage clean, painterly compositions.
+
 ---
 
-## 4. The $(1 + \lambda)$ Evolutionary Strategy
+## 4. Evolutionary Strategies: $(1 + \lambda)$ & The Island Model
 
-In image approximation, classic crossover (mating two candidate paintings) often creates visual chaos due to spatial layer conflicts. Use **$(1 + 1)$ or $(1 + \lambda)$ Hill Climbing**:
+In image approximation, classic crossover (mating two candidate paintings) creates visual chaos due to spatial layer conflicts. Use single-parent mutation with neutral drift:
 
 1. Maintain one current champion (`Painting`).
 2. Mutate non-destructively to produce a candidate (`val candidate = currentBest.mutate(...)`) with weighted operators:
@@ -139,9 +145,15 @@ In image approximation, classic crossover (mating two candidate paintings) often
    `currentBest = candidate.copy(error = candidateError)`
    * Allowing neutral mutations (`<=` instead of `<`) allows the genome to drift along neutral fitness plateaus toward better configurations.
 
+### Multi-Core Island Model
+To harness multi-core CPUs without synchronization bottlenecks:
+- Spawn independent worker threads, each running its own $(1+1)$ or $(1+\lambda)$ evolutionary loop with a private `Evaluator`.
+- Establish a **Ring Migration Topology**: every $M$ generations (e.g. 1,000 evals), each island passes a snapshot of its champion to its adjacent neighbor.
+- If the incoming immigrant beats the local champion, adopt it. This injects genetic diversity and knocks workers out of local stagnation.
+
 ---
 
-## 5. UI & Interaction Best Practices
+## 5. UI, Interaction & Vector Export
 
 1. **Split-Screen Layout**: Display the reference target image on the left and the evolving champion on the right using `canvas.drawImageRect`.
 2. **Thread Safety**: Pass champion snapshots between the background evolution thread and the Swing EDT using `AtomicReference<Painting>`.
@@ -156,7 +168,9 @@ In image approximation, classic crossover (mating two candidate paintings) often
    * `[Space]`: Toggle pause/resume (`painter.togglePause()`).
    * `[R]`: Reset population.
    * `[+]` / `[-]`: Dynamically increase/decrease stroke count (`painter.adjustStrokes(10)`).
-   * `[S]`: Export snapshot to disk via `image.encodeToData(EncodedImageFormat.PNG)`.
+   * `[S]`: Export raster PNG via `image.encodeToData(EncodedImageFormat.PNG)`.
+6. **Scalable Vector Export (SVG)**:
+   Serialize the vector chromosome (`strokes`) directly to W3C SVG XML (`<svg>`, `<path d="M... Q..." stroke="..." />`). This produces infinite-resolution vector artwork that can be rendered at any scale without raster pixelation.
 
-See detailed theory and fitness algorithms in:
+See detailed theory, mathematical derivations, and fitness algorithms in:
 [`references/evolutionary-strategies-and-fitness.md`](./references/evolutionary-strategies-and-fitness.md).

@@ -47,3 +47,40 @@ To accelerate early generations or large images ($512\times 512$+):
    - Periodically remove a stroke. If error does not increase significantly, keep the pruned genome. This creates cleaner, minimalist paintings.
 3. **Layer Ordering (Z-Index Mutation)**:
    - Swapping stroke indices in the list changes which stroke is rendered on top.
+
+---
+
+## 4. Multi-Core Island Model & Ring Migration
+
+When scaling evolution across multiple CPU cores, sharing a single mutable champion creates cache thrashing and lock contention. Instead, use an **Island Model**:
+
+1. **Topology**: Spawn $K$ worker threads (typically $K = \text{availableProcessors} - 1$). Each thread owns an independent $(1+1)$ or $(1+\lambda)$ evolutionary engine and private `Evaluator` instance.
+2. **Ring Migration**: Every $M$ generations (e.g., $M = 1,000$), each island sends its champion to its neighbor ($i \to (i+1) \pmod K$) via a thread-safe ring buffer or `ConcurrentLinkedQueue`.
+3. **Immigration Acceptance**: An island evaluates the incoming immigrant. If the immigrant outperforms the island's current champion, it becomes the new local champion.
+4. **Benefit**: Different islands explore distinct regions of the fitness landscape (different stroke configurations and color blendings). Migration allows one island to break through another's local plateau.
+
+---
+
+## 5. Perceptual Color Spaces & Edge-Weighted Kernels
+
+### CIELAB $\Delta E$ Perceptual Distance
+Euclidean distance in sRGB does not match human perception (the human eye is significantly more sensitive to green variations than blue, and non-linearly sensitive to luminance).
+$$\Delta E_{76} = \sqrt{(L^*_1 - L^*_2)^2 + (a^*_1 - a^*_2)^2 + (b^*_1 - b^*_2)^2}$$
+* **Implementation Tip**: Precompute an sRGB $\to$ Lab LUT (lookup table) or integer approximation to preserve zero-allocation high-speed evaluation in the inner loop.
+
+### Sobel Edge-Weighted Evaluation
+To prevent the algorithm from over-allocating strokes to flat backgrounds while blurring facial features or contours, compute a 2D edge salience mask using a Sobel operator ($G = \sqrt{G_x^2 + G_y^2}$):
+$$\text{Fitness} = \sum_{x,y} \left( 1.0 + w_{\text{edge}} \cdot S(x, y) \right) \cdot \text{Error}(x, y)$$
+where $S(x, y) \in [0, 1]$ is the normalized edge gradient magnitude, and $w_{\text{edge}}$ is a weighting factor (e.g. $1.5 \dots 3.0$).
+
+---
+
+## 6. Parsimony Pressure & Style Constraints
+
+Standard error metrics incentivize the algorithm to add the maximum allowed number of strokes to shave off tiny pixel errors, resulting in high-density noise.
+
+To encourage minimalist or painterly aesthetics, use **Parsimony Regularization**:
+$$\text{TotalFitness} = \text{PixelError} + \alpha \cdot N_{\text{strokes}} + \beta \cdot \text{TotalArea}$$
+* $\alpha$: Stroke count penalty coefficient. Allows dynamic insertion and deletion of strokes, finding the optimal balance between detail and simplicity.
+* $\beta$: Area penalty to encourage broad watercolor glazes or delicate pointillist marks.
+

@@ -97,6 +97,13 @@ When the user asks to turn an existing codebase or working application into a mu
    ```
    Wrap standalone equations in `<div class="math-card">` (styled in `./assets/lesson-style.css`) with horizontal scrolling (`overflow-x: auto`) for mobile readability.
 
+6. **Curriculum Expansion & Multi-Track Roadmapping**:
+   When extending a completed foundational series into advanced topics or multi-track horizons:
+   - **Organize by Thematic Tracks**: Group extension lessons into focused architectural tracks (e.g., Concurrency/Scaling, Objective & Fitness Modeling, Rendering & Serialization).
+   - **Maintain Master Syllabus**: Document the entire curriculum in `./lessons/README.md` and `./NOTES.md`, detailing learning objectives, core concepts, and target source symbols.
+   - **Synchronize Intra-Course Navigation**: Update the persistent sidebar navigation (`#sidebar .series-nav`) across all existing lesson HTML files with phase headers (`.nav-header`) and planned statuses (`.nav-planned`) so the learner maintains situational awareness of both completed foundations and upcoming roadmap milestones.
+   - **Record in Learning Records & Mission**: Document the established curriculum expansion in `./learning-records/` and update `./MISSION.md` success criteria to reflect the new technical scope.
+
 ## Assets
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets (with shared styles like `.math-card`), quiz widgets, simulators, diagram helpers, and anything else a second lesson could reuse.
