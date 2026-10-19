@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 9: Parsimony Pressure & Style Constraints</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- MathJax for LaTeX mathematical markup -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .pareto-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+    .style-card {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .style-card h4 {
+      color: var(--highlight);
+      margin-bottom: 0.5rem;
+      font-size: 1.05rem;
+    }
+    .sim-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .sim-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: center;
+      margin: 1.5rem 0;
+    }
+    @media (max-width: 768px) {
+      .sim-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    .sim-canvas-box {
+      text-align: center;
+    }
+    .sim-canvas-box canvas {
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      background: #000;
+      max-width: 100%;
+    }
+    .controls-panel {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .control-row label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li class="nav-header">Phase 1: Foundations</li>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+        <li class="nav-header">Phase 2: Track 1 - Concurrency</li>
+        <li><a href="0006-multicore-island-model.html">6. Multi-Core Island Model</a></li>
+        <li><a href="0007-adaptive-annealing-pyramids.html">7. Adaptive Annealing</a></li>
+        <li class="nav-header">Phase 2: Track 2 - Aesthetics</li>
+        <li><a href="0008-perceptual-fitness-cielab-sobel.html">8. Perceptual Fitness</a></li>
+        <li><a href="0009-parsimony-pressure-style-constraints.html" class="active">9. Parsimony Pressure</a></li>
+        <li class="nav-header">Phase 2: Track 3 - Expressiveness</li>
+        <li><a href="0010-diverse-vector-primitives.html">10. Diverse Primitives</a></li>
+        <li><a href="0011-svg-export-timelapse-capture.html">11. SVG Vector Export</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#genetic-bloat">1. The Problem of Genetic Bloat</a></li>
+        <li><a href="#parsimony-math">2. Formulating Parsimony Penalties</a></li>
+        <li><a href="#pareto-frontiers">3. The Pareto Optimality Frontier</a></li>
+        <li><a href="#stylistic-constraints">4. Artistic Style Constraints</a></li>
+        <li><a href="#interactive-simulator">5. In-Browser Parsimony Playground</a></li>
+        <li><a href="#kotlin-regularizer">6. Regularized Evaluator in Kotlin</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 9 &bull; Style & Multi-Objective</div>
+      <h1>Parsimony Pressure & Style Constraints</h1>
+      <p class="lead">
+        Combat genetic bloat, balance fidelity against stroke economy via Pareto optimization, and guide evolutionary algorithms toward distinct artistic styles.
+      </p>
+    </header>
+
+    <!-- SECTION 1: GENETIC BLOAT -->
+    <section id="genetic-bloat">
+      <h2><span class="section-num">1</span> The Problem of Genetic Bloat</h2>
+      <p>
+        If an evolutionary algorithm is permitted to add strokes unconstrained, it will inevitably succumb to <strong>genetic bloat</strong> (overfitting):
+      </p>
+      <ul>
+        <li>The chromosome expands to thousands of tiny, microscopic stroke splatters.</li>
+        <li>Each stroke merely adjusts 3 or 4 pixels by 0.5% opacity, contributing virtually zero aesthetic value.</li>
+        <li>Rendering times explode from 0.1 ms to 15 ms per frame, suffocating evolutionary throughput.</li>
+        <li>The resulting vector painting resembles a noisy photographic raster rather than an intentional work of human art.</li>
+      </ul>
+      <p>
+        In traditional fine art, master painters achieve beauty through <strong>economy of means</strong>: conveying the full emotional essence of a subject with the fewest, most decisive brush marks possible.
+      </p>
+    </section>
+
+    <!-- SECTION 2: PARSIMONY MATH -->
+    <section id="parsimony-math">
+      <h2><span class="section-num">2</span> Formulating Parsimony Penalties</h2>
+      <p>
+        In evolutionary computation, <strong>parsimony pressure</strong> introduces an explicit cost for chromosome complexity. Rather than optimizing pixel error alone, our objective function penalizes stroke quantity, ink volume, or total path length:
+      </p>
+      <div class="math-card">
+        \[
+        F_{regularized}(P) = E_{pixel}(P, T) + \alpha \cdot N_{strokes} + \beta \cdot \sum_{i=1}^{N_{strokes}} \text{Area}(S_i)
+        \]
+      </div>
+      <p>
+        Where:
+      </p>
+      <ul>
+        <li>\(E_{pixel}(P, T)\) is the perceptual CIELAB or SSD difference between painting \(P\) and target \(T\).</li>
+        <li>\(\alpha > 0\) is the parsimony multiplier per stroke. A mutant that adds a stroke must reduce pixel error by at least \(\alpha\) to survive selection.</li>
+        <li>\(\beta \ge 0\) is an optional penalty on stroke surface area or path curvature, discouraging visual noise.</li>
+      </ul>
+    </section>
+
+    <!-- SECTION 3: PARETO FRONTIER -->
+    <section id="pareto-frontiers">
+      <h2><span class="section-num">3</span> The Pareto Optimality Frontier</h2>
+      <p>
+        Genetic art is fundamentally a <strong>multi-objective optimization problem</strong>. There is no single "perfect" solution, but rather a set of non-dominated solutions forming a <strong>Pareto Frontier</strong>:
+      </p>
+      <div class="math-card">
+        \[
+        P_A \succ P_B \iff \big(E(P_A) \le E(P_B) \land N(P_A) \le N(P_B)\big) \land \big(E(P_A) < E(P_B) \lor N(P_A) < N(P_B)\big)
+        \]
+      </div>
+      <p>
+        A 25-stroke painting with 15% error and a 150-stroke painting with 6% error are both Pareto-optimal: each is the best possible representation at its respective level of abstraction.
+      </p>
+    </section>
+
+    <!-- SECTION 4: ARTISTIC STYLES -->
+    <section id="stylistic-constraints">
+      <h2><span class="section-num">4</span> Artistic Style Constraints</h2>
+      <p>
+        By calibrating parsimony hyperparameters and mutation constraints, you can guide the evolutionary engine into radically different aesthetic movements:
+      </p>
+
+      <div class="pareto-grid">
+        <div class="style-card">
+          <h4>🎨 Impressionist (Monet / Cézanne)</h4>
+          <p>Enforce large minimum stroke widths (\(w \ge 12\text{px}\)), restrict stroke budget to 80, and bias stroke angles along dominant image color gradients.</p>
+        </div>
+        <div class="style-card">
+          <h4>✒️ Minimalist Contour Art</h4>
+          <p>High \(\alpha\) penalty, monochrome or two-tone palette, thin stroke widths, and heavy penalties on overlapping intersections to force clean, continuous contours.</p>
+        </div>
+        <div class="style-card">
+          <h4>🌪️ Directional Flow Field (Van Gogh)</h4>
+          <p>Rotate stroke control points to align with a vector flow field derived from the target image's Sobel gradient tangents: \(\theta(x, y) = \arctan2(-G_x, G_y)\).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE SIMULATOR -->
+    <section id="interactive-simulator">
+      <h2><span class="section-num">5</span> In-Browser Parsimony Playground</h2>
+      <p>
+        Adjust the parsimony weight \(\alpha\) and maximum stroke budget. Observe how increasing parsimony eliminates micro-clutter, forcing the painting into broad, bold strokes:
+      </p>
+
+      <div class="sim-card">
+        <div class="sim-layout">
+          <div class="sim-canvas-box">
+            <canvas id="parsimonyCanvas" width="280" height="280"></canvas>
+            <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+              Active Strokes: <strong id="lblActiveStrokes" style="color: var(--highlight);">40</strong> | 
+              Fidelity Error: <strong id="lblError" style="color: var(--highlight);">12.4%</strong>
+            </div>
+          </div>
+
+          <div class="controls-panel">
+            <div class="control-row">
+              <label for="alphaSlider">
+                <span>Parsimony Penalty (\(\alpha\)):</span>
+                <span id="lblAlpha" style="color: var(--highlight);">0.05</span>
+              </label>
+              <input type="range" id="alphaSlider" min="0.001" max="0.25" step="0.005" value="0.05">
+            </div>
+
+            <div class="control-row">
+              <label for="strokeCapSlider">
+                <span>Max Stroke Cap:</span>
+                <span id="lblStrokeCap" style="color: var(--highlight);">50</span>
+              </label>
+              <input type="range" id="strokeCapSlider" min="10" max="200" step="5" value="50">
+            </div>
+
+            <div class="control-row">
+              <label for="stylePreset">Aesthetic Preset:</label>
+              <select id="stylePreset" style="background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); padding: 0.4rem; border-radius: 4px;">
+                <option value="balanced" selected>Balanced Regularization</option>
+                <option value="impressionist">Impressionist (Bold & Few)</option>
+                <option value="minimalist">Ultra-Minimalist (Economical)</option>
+                <option value="photomatch">Detailed Photo-Match (Low α)</option>
+              </select>
+            </div>
+
+            <button class="sim-btn" id="btnReroll" style="margin-top: 0.5rem;">Generate Styled Painting</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: KOTLIN REGULARIZER -->
+    <section id="kotlin-regularizer">
+      <h2><span class="section-num">6</span> Regularized Evaluator in Kotlin</h2>
+      <p>
+        Incorporate parsimony pressure directly into your Kotlin fitness evaluation routine:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>RegularizedEvaluator.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+        </div>
+        <pre><code class="language-kotlin">class RegularizedEvaluator(
+    val target: TargetImage,
+    val baseEvaluator: Evaluator,
+    val parsimonyAlpha: Double = 250.0,
+    val maxStrokeBudget: Int = 100
+) {
+    fun evaluate(painting: Painting): Double {
+        val strokeCount = painting.strokes.size
+
+        // Hard constraint: disqualify chromosomes exceeding stroke limit
+        if (strokeCount > maxStrokeBudget) {
+            return Double.MAX_VALUE
+        }
+
+        // Base pixel difference
+        val pixelSSD = baseEvaluator.evaluate(painting)
+
+        // Linear parsimony penalty per stroke
+        val penalty = strokeCount * parsimonyAlpha
+
+        return pixelSSD + penalty
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Test your understanding of parsimony pressure, multi-objective fitness, and artistic constraints.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">What is the primary aesthetic benefit of adding parsimony penalties to fitness?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Parsimony focuses on stroke economy, not CPU core allocation.">It allows seamless multi-core execution.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Penalizing extra strokes prevents messy micro-splatters and produces bold, clean brush marks.">It avoids noisy micro-stroke clutter.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Lookup tables accelerate CIELAB conversions, not parsimony.">It eliminates 3D lookup table memory.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Parsimony is an algorithmic penalty, not an OS rendering delegate.">It delegates Skia rendering to GPU.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>
+          Read Kalyanmoy Deb's foundational text, <a href="https://www.wiley.com/en-us/Multi-Objective+Optimization+using+Evolutionary+Algorithms-p-9780471873396" target="_blank" rel="noopener">Multi-Objective Optimization using Evolutionary Algorithms</a>, and John Koza's discussions on parsimony pressure in <em>Genetic Programming</em>.
+        </p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>
+          Want to see how penalizing total stroke path length creates tight, compact brush dabs? Inquire in chat!
+        </p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0008-perceptual-fitness-cielab-sobel.html" class="nav-btn">⬅ Lesson 8: Perceptual Fitness & Sobel</a>
+        <a href="0010-diverse-vector-primitives.html" class="nav-btn">Next: Lesson 10 – Diverse Vector Primitives ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // INTERACTIVE PARSIMONY CANVAS
+    const canvas = document.getElementById('parsimonyCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const alphaSlider = document.getElementById('alphaSlider');
+    const strokeCapSlider = document.getElementById('strokeCapSlider');
+    const stylePreset = document.getElementById('stylePreset');
+    const lblAlpha = document.getElementById('lblAlpha');
+    const lblStrokeCap = document.getElementById('lblStrokeCap');
+    const lblActiveStrokes = document.getElementById('lblActiveStrokes');
+    const lblError = document.getElementById('lblError');
+
+    alphaSlider.addEventListener('input', (e) => {
+      lblAlpha.textContent = parseFloat(e.target.value).toFixed(3);
+      renderArtwork();
+    });
+
+    strokeCapSlider.addEventListener('input', (e) => {
+      lblStrokeCap.textContent = e.target.value;
+      renderArtwork();
+    });
+
+    stylePreset.addEventListener('change', (e) => {
+      if (e.target.value === 'impressionist') {
+        alphaSlider.value = 0.12;
+        strokeCapSlider.value = 35;
+      } else if (e.target.value === 'minimalist') {
+        alphaSlider.value = 0.22;
+        strokeCapSlider.value = 18;
+      } else if (e.target.value === 'photomatch') {
+        alphaSlider.value = 0.005;
+        strokeCapSlider.value = 150;
+      } else {
+        alphaSlider.value = 0.05;
+        strokeCapSlider.value = 50;
+      }
+      lblAlpha.textContent = parseFloat(alphaSlider.value).toFixed(3);
+      lblStrokeCap.textContent = strokeCapSlider.value;
+      renderArtwork();
+    });
+
+    document.getElementById('btnReroll').addEventListener('click', () => {
+      renderArtwork();
+    });
+
+    function renderArtwork() {
+      const alpha = parseFloat(alphaSlider.value);
+      const cap = parseInt(strokeCapSlider.value, 10);
+
+      // Higher alpha means fewer effective strokes survive selection
+      const effectiveStrokes = Math.max(8, Math.min(cap, Math.round(cap * Math.exp(-alpha * 8))));
+      lblActiveStrokes.textContent = effectiveStrokes.toString();
+
+      const error = (6.0 + 35.0 / Math.sqrt(effectiveStrokes)).toFixed(1);
+      lblError.textContent = `${error}%`;
+
+      ctx.fillStyle = '#0f111a';
+      ctx.fillRect(0, 0, 280, 280);
+
+      // Render strokes with width inversely proportional to stroke count (impressionist scaling)
+      const baseWidth = Math.max(3, 24 * (40 / Math.max(20, effectiveStrokes)));
+
+      for (let i = 0; i < effectiveStrokes; i++) {
+        const x1 = Math.sin(i * 1.7) * 90 + 140;
+        const y1 = Math.cos(i * 1.3) * 90 + 140;
+        const cx = Math.sin(i * 2.1) * 110 + 140;
+        const cy = Math.cos(i * 1.9) * 110 + 140;
+        const x2 = Math.sin(i * 0.9) * 100 + 140;
+        const y2 = Math.cos(i * 2.7) * 100 + 140;
+
+        const hue = (i * 37) % 360;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo(cx, cy, x2, y2);
+        ctx.strokeStyle = `hsla(${hue}, 70%, 55%, 0.45)`;
+        ctx.lineWidth = baseWidth + Math.sin(i) * 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    renderArtwork();
+  </script>
+</body>
+</html>

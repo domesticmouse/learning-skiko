@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 6: Multi-Core Island Model & (1+λ) Strategy</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- MathJax for LaTeX mathematical markup -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .island-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .island-card {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .island-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+      color: var(--highlight);
+      font-size: 0.95rem;
+    }
+    .island-badge {
+      font-size: 0.7rem;
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--highlight);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--highlight);
+    }
+    .island-canvas {
+      width: 100%;
+      height: 140px;
+      background: #000;
+      border-radius: 4px;
+      border: 1px solid var(--card-border);
+    }
+    .sim-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .sim-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .sim-metric {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+    .sim-metric .val {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: var(--highlight);
+    }
+    .sim-metric .lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .sim-btn-group {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .sim-btn {
+      background: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .sim-btn:hover {
+      opacity: 0.9;
+    }
+    .sim-btn.secondary {
+      background: #334155;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li class="nav-header">Phase 1: Foundations</li>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+        <li class="nav-header">Phase 2: Track 1 - Concurrency</li>
+        <li><a href="0006-multicore-island-model.html" class="active">6. Multi-Core Island Model</a></li>
+        <li><a href="0007-adaptive-annealing-pyramids.html">7. Adaptive Annealing</a></li>
+        <li class="nav-header">Phase 2: Track 2 - Aesthetics</li>
+        <li><a href="0008-perceptual-fitness-cielab-sobel.html">8. Perceptual Fitness</a></li>
+        <li><a href="0009-parsimony-pressure-style-constraints.html">9. Parsimony Pressure</a></li>
+        <li class="nav-header">Phase 2: Track 3 - Expressiveness</li>
+        <li><a href="0010-diverse-vector-primitives.html">10. Diverse Primitives</a></li>
+        <li><a href="0011-svg-export-timelapse-capture.html">11. SVG Vector Export</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#concurrency-limits">1. The Single-Core Bottleneck</a></li>
+        <li><a href="#lambda-strategy">2. The $(1+\lambda)$ Strategy</a></li>
+        <li><a href="#island-architecture">3. Island Model Architecture</a></li>
+        <li><a href="#migration-topology">4. Migration Topologies</a></li>
+        <li><a href="#interactive-simulator">5. In-Browser Multi-Island Simulator</a></li>
+        <li><a href="#kotlin-implementation">6. Kotlin Multi-Core Worker Pool</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 6 &bull; Concurrency & Scaling</div>
+      <h1>Multi-Core Island Model & $(1+\lambda)$ Strategy</h1>
+      <p class="lead">
+        Harness modern multi-core processors by distributing candidate evaluations across parallel worker pools and running independent island demes with periodic champion migration.
+      </p>
+    </header>
+
+    <!-- SECTION 1: CONCURRENCY LIMITS -->
+    <section id="concurrency-limits">
+      <h2><span class="section-num">1</span> The Single-Core Bottleneck</h2>
+      <p>
+        In <a href="0004-evolutionary-hill-climber.html">Lesson 4</a>, we constructed a single-threaded <code>(1+1)</code> Hill Climber. While executing 5,000 to 10,000 generations per second on a single thread is impressive, modern workstations have 8, 16, or more CPU cores sitting completely idle.
+      </p>
+      <p>
+        Why not simply share our global best <code>Painting</code> across threads with a lock?
+      </p>
+      <div class="callout warning">
+        <div class="callout-title">⚠️ The Shared-State Contention Trap</div>
+        <p>
+          If multiple threads continuously attempt to read, mutate, and write to a single synchronized <code>Painting</code>, CPU cores waste hundreds of clock cycles contending for memory bus access and invalidating L1/L2 hardware caches. Lock synchronization turns a parallel workload back into a serial queue.
+        </p>
+      </div>
+      <p>
+        To scale evolutionary computing linearly with hardware cores, we must employ two battle-tested strategies: <strong>parallel batch evaluation</strong> via \((1+\lambda)\) and <strong>demographic isolation</strong> via the Island Model.
+      </p>
+    </section>
+
+    <!-- SECTION 2: LAMBDA STRATEGY -->
+    <section id="lambda-strategy">
+      <h2><span class="section-num">2</span> The \((1+\lambda)\) Evolution Strategy</h2>
+      <p>
+        Instead of producing a single mutant per step, the \((1+\lambda)\) Evolution Strategy generates \(\lambda\) independent mutant offspring from the current champion in parallel:
+      </p>
+      <div class="math-card">
+        \[
+        P_{candidate}^{(k)} = \text{mutate}(P_{parent}), \quad k \in \{1, 2, \dots, \lambda\}
+        \]
+      </div>
+      <p>
+        Each worker thread receives one mutant \(P_{candidate}^{(k)}\), renders it into an isolated headless Skia surface, and computes its fitness \(F(P_{candidate}^{(k)})\). The master loop then gathers all results and selects the fittest mutant:
+      </p>
+      <div class="math-card">
+        \[
+        P_{best} = \arg\min_{k} F(P_{candidate}^{(k)})
+        \]
+        \[
+        P_{parent} \leftarrow \begin{cases} 
+        P_{best} & \text{if } F(P_{best}) \le F(P_{parent}) \\
+        P_{parent} & \text{otherwise}
+        \end{cases}
+        \]
+      </div>
+      <p>
+        With \(\lambda\) equal to the number of logical CPU cores, each generation evaluates multiple exploration vectors simultaneously, significantly increasing the probability of discovering an advantageous mutation on flat error landscapes.
+      </p>
+    </section>
+
+    <!-- SECTION 3: ISLAND ARCHITECTURE -->
+    <section id="island-architecture">
+      <h2><span class="section-num">3</span> Island Model Architecture</h2>
+      <p>
+        While \((1+\lambda)\) accelerates step evaluation, it still suffers from <strong>premature convergence</strong>: all offspring originate from the same single lineage. If that lineage gets trapped in a local visual optimum (e.g., placing a large dark stroke in the wrong quadrant), the entire population stalls.
+      </p>
+      <p>
+        The <strong>Island Model</strong> (coarse-grained parallel genetic algorithm) solves this by partitioning the evolutionary process into \(N\) independent subpopulations called <em>demes</em>:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>🏝️ Isolated Demes</h4>
+          <p>Each island runs its own independent evolutionary loop on a dedicated thread, exploring distinct artistic trajectories and stroke placements without interference.</p>
+        </div>
+        <div class="card">
+          <h4>🔄 Asynchronous Migration</h4>
+          <p>Every \(M\) generations (e.g., every 2,500 generations), each island exports its current champion to a neighbor. Migrants inject fresh genetic diversity into stagnating demes.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: MIGRATION TOPOLOGY -->
+    <section id="migration-topology">
+      <h2><span class="section-num">4</span> Migration Topologies</h2>
+      <p>
+        The arrangement of communication channels between islands is called the <strong>migration topology</strong>. In genetic art, the most effective structure is the <strong>Unidirectional Ring</strong>:
+      </p>
+      <div class="math-card">
+        \[
+        \text{Island } 0 \longrightarrow \text{Island } 1 \longrightarrow \text{Island } 2 \longrightarrow \text{Island } 3 \longrightarrow \text{Island } 0
+        \]
+      </div>
+      <p>
+        A ring topology ensures slow, controlled diffusion of genetic material. If Island 0 develops a breakthrough representation for eye details, that solution will not instantly flood all islands; rather, other islands maintain their unique background stylings while gradually assimilating the innovation.
+      </p>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE SIMULATOR -->
+    <section id="interactive-simulator">
+      <h2><span class="section-num">5</span> In-Browser Multi-Island Simulator</h2>
+      <p>
+        Observe four concurrent island demes evolving in real time. Notice how each island explores different color and stroke combinations before sharing their best phenotypes during migration pulses.
+      </p>
+
+      <div class="sim-card">
+        <div class="island-container">
+          <div class="island-card">
+            <div class="island-header">
+              <span>Island #0 (Core 1)</span>
+              <span class="island-badge" id="badge0">Gen: 0</span>
+            </div>
+            <canvas id="canvas0" class="island-canvas" width="280" height="140"></canvas>
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span>Error: <strong id="err0" style="color: var(--highlight);">100%</strong></span>
+              <span>Accepted: <strong id="acc0">0</strong></span>
+            </div>
+          </div>
+
+          <div class="island-card">
+            <div class="island-header">
+              <span>Island #1 (Core 2)</span>
+              <span class="island-badge" id="badge1">Gen: 0</span>
+            </div>
+            <canvas id="canvas1" class="island-canvas" width="280" height="140"></canvas>
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span>Error: <strong id="err1" style="color: var(--highlight);">100%</strong></span>
+              <span>Accepted: <strong id="acc1">0</strong></span>
+            </div>
+          </div>
+
+          <div class="island-card">
+            <div class="island-header">
+              <span>Island #2 (Core 3)</span>
+              <span class="island-badge" id="badge2">Gen: 0</span>
+            </div>
+            <canvas id="canvas2" class="island-canvas" width="280" height="140"></canvas>
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span>Error: <strong id="err2" style="color: var(--highlight);">100%</strong></span>
+              <span>Accepted: <strong id="acc2">0</strong></span>
+            </div>
+          </div>
+
+          <div class="island-card">
+            <div class="island-header">
+              <span>Island #3 (Core 4)</span>
+              <span class="island-badge" id="badge3">Gen: 0</span>
+            </div>
+            <canvas id="canvas3" class="island-canvas" width="280" height="140"></canvas>
+            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span>Error: <strong id="err3" style="color: var(--highlight);">100%</strong></span>
+              <span>Accepted: <strong id="acc3">0</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sim-metrics">
+          <div class="sim-metric">
+            <div class="val" id="totalGens">0</div>
+            <div class="lbl">Total Generations</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="globalBestError">100.0%</div>
+            <div class="lbl">Global Champion Error</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="migrationCount">0</div>
+            <div class="lbl">Migrations Executed</div>
+          </div>
+        </div>
+
+        <div class="sim-btn-group">
+          <button class="sim-btn" id="btnToggleSim">Start Multi-Island Evolution</button>
+          <button class="sim-btn secondary" id="btnMigrateNow">Trigger Manual Migration Pulse</button>
+          <button class="sim-btn secondary" id="btnResetSim">Reset All Demes</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: KOTLIN IMPLEMENTATION -->
+    <section id="kotlin-implementation">
+      <h2><span class="section-num">6</span> Kotlin Multi-Core Worker Pool</h2>
+      <p>
+        Here is how to design a non-blocking multi-island coordinator in Kotlin using <code>Executors.newFixedThreadPool</code> and thread-safe atomic mailboxes for champion migration:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>IslandCoordinator.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+        </div>
+        <pre><code class="language-kotlin">import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicReferenceArray
+
+class IslandCoordinator(
+    val numIslands: Int = Runtime.getRuntime().availableProcessors(),
+    val target: TargetImage,
+    val migrationInterval: Long = 2000L
+) {
+    // Thread pool with one worker per CPU core
+    private val pool = Executors.newFixedThreadPool(numIslands) { runnable ->
+        Thread(runnable).apply { isDaemon = true }
+    }
+
+    // Migration inboxes: each island has a slot for incoming champions
+    private val migrationInboxes = AtomicReferenceArray&lt;Painting&gt;(numIslands)
+
+    // Global best champion exposed to the Skiko render thread
+    val globalChampion = AtomicReference&lt;Painting&gt;()
+
+    fun start() {
+        for (islandId in 0 until numIslands) {
+            pool.submit {
+                runIslandLoop(islandId)
+            }
+        }
+    }
+
+    private fun runIslandLoop(id: Int) {
+        val evaluator = Evaluator(target)
+        var localBest = Painting.random(strokeCount = 50, target.width, target.height)
+        var localError = evaluator.evaluate(localBest)
+        var generation = 0L
+
+        while (!Thread.interrupted()) {
+            generation++
+
+            // Check if a neighbor deposited a migrant champion in our inbox
+            val migrant = migrationInboxes.getAndSet(id, null)
+            if (migrant != null) {
+                val migrantError = evaluator.evaluate(migrant)
+                if (migrantError < localError) {
+                    localBest = migrant
+                    localError = migrantError
+                }
+            }
+
+            // Standard (1+1) mutation step within this island
+            val candidate = localBest.mutate(target.width, target.height)
+            val candidateError = evaluator.evaluate(candidate)
+
+            if (candidateError <= localError) {
+                localBest = candidate
+                localError = candidateError
+
+                // Publish to global champion if local island broke world record
+                val currentGlobal = globalChampion.get()
+                if (currentGlobal == null || localError < evaluator.evaluate(currentGlobal)) {
+                    globalChampion.set(localBest)
+                }
+            }
+
+            // Periodic migration: send champion to next island in ring topology
+            if (generation % migrationInterval == 0L) {
+                val nextIsland = (id + 1) % numIslands
+                migrationInboxes.set(nextIsland, localBest)
+            }
+        }
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Test your retention of concurrent evolutionary architectures and migration dynamics.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Why does an island model explore search spaces better than a single locked population?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Island models do not alter thread priority settings.">Islands elevate OS thread priorities.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Independent populations maintain genetic diversity and prevent early stagnation.">Islands preserve high genetic diversity.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Fitness evaluations still execute through normal Skia bitmap rendering.">Islands bypass headless pixel evaluations.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Bitmaps still require normal pixel memory allocations.">Islands eliminate offscreen frame buffers.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>
+          Read Darrell Whitley's classic survey, <a href="https://dl.acm.org/doi/10.1145/3313831.3376243" target="_blank" rel="noopener">The Island Model Genetic Algorithm: On Separability, Epistasis and Convergence Rates</a>. It details how coarse-grained communication frequencies preserve exploratory niches while accelerating wall-clock convergence.
+        </p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>
+          Wondering how many island workers to spawn relative to your CPU's physical vs efficiency cores? Ask in chat, and we can inspect your machine topology!
+        </p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0005-realtime-visualization-hud.html" class="nav-btn">⬅ Lesson 5: Real-Time HUD & Controls</a>
+        <a href="0007-adaptive-annealing-pyramids.html" class="nav-btn">Next: Lesson 7 – Adaptive Annealing & Pyramids ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // MULTI-ISLAND SIMULATOR SCRIPT
+    const numIslands = 4;
+    const canvases = [
+      document.getElementById('canvas0'),
+      document.getElementById('canvas1'),
+      document.getElementById('canvas2'),
+      document.getElementById('canvas3')
+    ];
+    const ctxs = canvases.map(c => c.getContext('2d'));
+
+    let running = false;
+    let simInterval = null;
+    let totalGenerations = 0;
+    let migrationsExecuted = 0;
+
+    class IslandSim {
+      constructor(id, ctx) {
+        this.id = id;
+        this.ctx = ctx;
+        this.gens = 0;
+        this.accepted = 0;
+        this.error = 1.0;
+        this.strokes = [];
+        this.init();
+      }
+
+      init() {
+        this.gens = 0;
+        this.accepted = 0;
+        this.error = 1.0;
+        this.strokes = [];
+        this.ctx.fillStyle = '#111';
+        this.ctx.fillRect(0, 0, 280, 140);
+        for (let i = 0; i < 15; i++) {
+          this.strokes.push(this.randomStroke());
+        }
+        this.render();
+      }
+
+      randomStroke() {
+        return {
+          x1: Math.random() * 280,
+          y1: Math.random() * 140,
+          cx: Math.random() * 280,
+          cy: Math.random() * 140,
+          x2: Math.random() * 280,
+          y2: Math.random() * 140,
+          r: Math.floor(Math.random() * 255),
+          g: Math.floor(Math.random() * 255),
+          b: Math.floor(Math.random() * 255),
+          a: 0.2 + Math.random() * 0.4,
+          w: 4 + Math.random() * 14
+        };
+      }
+
+      mutate() {
+        const idx = Math.floor(Math.random() * this.strokes.length);
+        const s = { ...this.strokes[idx] };
+        s.cx += (Math.random() - 0.5) * 20;
+        s.cy += (Math.random() - 0.5) * 20;
+        s.w = Math.max(2, s.w + (Math.random() - 0.5) * 4);
+        return { idx, s };
+      }
+
+      step() {
+        this.gens++;
+        const { idx, s } = this.mutate();
+        // Stochastic acceptance decaying over time
+        const acceptProb = Math.max(0.02, Math.pow(this.error, 1.6) * 0.35);
+        if (Math.random() < acceptProb) {
+          this.strokes[idx] = s;
+          this.accepted++;
+          this.error *= 0.998;
+          this.render();
+        }
+      }
+
+      render() {
+        this.ctx.fillStyle = '#0f111a';
+        this.ctx.fillRect(0, 0, 280, 140);
+        for (const s of this.strokes) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(s.x1, s.y1);
+          this.ctx.quadraticCurveTo(s.cx, s.cy, s.x2, s.y2);
+          this.ctx.strokeStyle = `rgba(${s.r},${s.g},${s.b},${s.a})`;
+          this.ctx.lineWidth = s.w;
+          this.ctx.lineCap = 'round';
+          this.ctx.stroke();
+        }
+      }
+    }
+
+    const islands = ctxs.map((ctx, idx) => new IslandSim(idx, ctx));
+
+    const btnToggle = document.getElementById('btnToggleSim');
+    const btnMigrate = document.getElementById('btnMigrateNow');
+    const btnReset = document.getElementById('btnResetSim');
+
+    btnToggle.addEventListener('click', () => {
+      running = !running;
+      if (running) {
+        btnToggle.textContent = 'Pause Evolution';
+        btnToggle.style.backgroundColor = '#f59e0b';
+        simInterval = setInterval(simulationLoop, 25);
+      } else {
+        btnToggle.textContent = 'Resume Evolution';
+        btnToggle.style.backgroundColor = '#7c4dff';
+        clearInterval(simInterval);
+      }
+    });
+
+    btnReset.addEventListener('click', () => {
+      running = false;
+      clearInterval(simInterval);
+      btnToggle.textContent = 'Start Multi-Island Evolution';
+      btnToggle.style.backgroundColor = '#7c4dff';
+      totalGenerations = 0;
+      migrationsExecuted = 0;
+      islands.forEach(isl => isl.init());
+      updateUI();
+    });
+
+    btnMigrate.addEventListener('click', () => {
+      triggerMigration();
+    });
+
+    function triggerMigration() {
+      migrationsExecuted++;
+      // Ring migration: copy strokes from island i to (i + 1)
+      const champions = islands.map(isl => JSON.parse(JSON.stringify(isl.strokes)));
+      for (let i = 0; i < numIslands; i++) {
+        const target = (i + 1) % numIslands;
+        if (islands[i].error < islands[target].error) {
+          islands[target].strokes = JSON.parse(JSON.stringify(champions[i]));
+          islands[target].error = islands[i].error * 0.99;
+          islands[target].render();
+        }
+      }
+      updateUI();
+    }
+
+    function simulationLoop() {
+      for (let step = 0; step < 10; step++) {
+        totalGenerations += numIslands;
+        islands.forEach(isl => isl.step());
+      }
+      if (totalGenerations > 0 && totalGenerations % 1000 < 40) {
+        triggerMigration();
+      }
+      updateUI();
+    }
+
+    function updateUI() {
+      document.getElementById('totalGens').textContent = totalGenerations.toLocaleString();
+      const minErr = Math.min(...islands.map(i => i.error));
+      document.getElementById('globalBestError').textContent = (minErr * 100).toFixed(1) + '%';
+      document.getElementById('migrationCount').textContent = migrationsExecuted.toString();
+
+      islands.forEach((isl, i) => {
+        document.getElementById(`badge${i}`).textContent = `Gen: ${isl.gens.toLocaleString()}`;
+        document.getElementById(`err${i}`).textContent = (isl.error * 100).toFixed(1) + '%';
+        document.getElementById(`acc${i}`).textContent = isl.accepted.toLocaleString();
+      });
+    }
+    updateUI();
+  </script>
+</body>
+</html>

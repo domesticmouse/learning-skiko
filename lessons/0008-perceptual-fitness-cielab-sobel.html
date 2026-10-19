@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 8: Perceptual Color Distances & Edge-Aware Fitness</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- MathJax for LaTeX mathematical markup -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .color-space-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+    .color-card {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .sim-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .sim-view-modes {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .mode-btn {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--accent-color);
+      border-color: var(--accent-color);
+      color: #fff;
+    }
+    .sim-canvases {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin: 1.5rem 0;
+    }
+    .canvas-panel {
+      text-align: center;
+    }
+    .canvas-panel canvas {
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      background: #000;
+      display: block;
+    }
+    .canvas-panel span {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li class="nav-header">Phase 1: Foundations</li>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+        <li class="nav-header">Phase 2: Track 1 - Concurrency</li>
+        <li><a href="0006-multicore-island-model.html">6. Multi-Core Island Model</a></li>
+        <li><a href="0007-adaptive-annealing-pyramids.html">7. Adaptive Annealing</a></li>
+        <li class="nav-header">Phase 2: Track 2 - Aesthetics</li>
+        <li><a href="0008-perceptual-fitness-cielab-sobel.html" class="active">8. Perceptual Fitness</a></li>
+        <li><a href="0009-parsimony-pressure-style-constraints.html">9. Parsimony Pressure</a></li>
+        <li class="nav-header">Phase 2: Track 3 - Expressiveness</li>
+        <li><a href="0010-diverse-vector-primitives.html">10. Diverse Primitives</a></li>
+        <li><a href="0011-svg-export-timelapse-capture.html">11. SVG Vector Export</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#rgb-flaws">1. The Flaws of RGB Euclidean Error</a></li>
+        <li><a href="#cielab-space">2. The CIE $L^*a^*b^*$ Color Space</a></li>
+        <li><a href="#delta-e">3. Measuring Perceptual Distance ($\Delta E$)</a></li>
+        <li><a href="#sobel-filter">4. Sobel Edge Saliency Convolution</a></li>
+        <li><a href="#interactive-visualizer">5. In-Browser Perceptual Comparator</a></li>
+        <li><a href="#kotlin-evaluator">6. Zero-Allocation LUT Evaluator</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 8 &bull; Aesthetics & Vision</div>
+      <h1>Perceptual Color Distances & Edge-Aware Fitness</h1>
+      <p class="lead">
+        Upgrade fitness evaluation from naive RGB differences to human-vision-aligned CIE \(L^*a^*b^*\) \(\Delta E\) color metrics and Sobel edge saliency convolution kernels.
+      </p>
+    </header>
+
+    <!-- SECTION 1: RGB FLAWS -->
+    <section id="rgb-flaws">
+      <h2><span class="section-num">1</span> The Flaws of RGB Euclidean Error</h2>
+      <p>
+        In <a href="0003-offscreen-fitness-evaluation.html">Lesson 3</a>, we calculated image difference using sum of squared differences (SSD) in raw RGB space:
+      </p>
+      <div class="math-card">
+        \[
+        D_{RGB}(c_1, c_2) = (R_1 - R_2)^2 + (G_1 - G_2)^2 + (B_1 - B_2)^2
+        \]
+      </div>
+      <p>
+        While computationally trivial, RGB is <strong>perceptually non-uniform</strong>. Human optical biology possesses three cone photoreceptors (L, M, S) with drastically unequal spectral sensitivities:
+      </p>
+      <ul>
+        <li>The human eye is exquisitely sensitive to slight shifts in <strong>green wavelengths and luminance</strong>.</li>
+        <li>The human eye is relatively insensitive to high-frequency variations in <strong>deep blue wavelengths</strong>.</li>
+        <li>In RGB space, two colors with a mathematical Euclidean distance of 30 might appear virtually indistinguishable, while another pair with the exact same distance of 30 will look jarringly mismatched.</li>
+      </ul>
+    </section>
+
+    <!-- SECTION 2: CIELAB SPACE -->
+    <section id="cielab-space">
+      <h2><span class="section-num">2</span> The CIE \(L^*a^*b^*\) Color Space</h2>
+      <p>
+        Established by the International Commission on Illumination (CIE) in 1976, the \(L^*a^*b^*\) color model was mathematically engineered to approximate human vision:
+      </p>
+
+      <div class="color-space-grid">
+        <div class="color-card">
+          <h4>\(L^*\) (Lightness)</h4>
+          <p>Ranges from 0 (absolute black) to 100 (diffuse white). Aligns with human perception of lightness.</p>
+        </div>
+        <div class="color-card">
+          <h4>\(a^*\) (Green &ndash; Red Axis)</h4>
+          <p>Negative values represent green; positive values represent magenta/red. Models human red-green opponent channel.</p>
+        </div>
+        <div class="color-card">
+          <h4>\(b^*\) (Blue &ndash; Yellow Axis)</h4>
+          <p>Negative values represent blue; positive values represent yellow. Models blue-yellow opponent channel.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: DELTA E -->
+    <section id="delta-e">
+      <h2><span class="section-num">3</span> Measuring Perceptual Distance (\(\Delta E\))</h2>
+      <p>
+        In CIE \(L^*a^*b^*\) space, perceptual distance between two colors is given by the Euclidean formula \(\Delta E^*_{ab}\):
+      </p>
+      <div class="math-card">
+        \[
+        \Delta E^*_{ab} = \sqrt{(\Delta L^*)^2 + (\Delta a^*)^2 + (\Delta b^*)^2}
+        \]
+      </div>
+      <p>
+        A \(\Delta E\) of \(\approx 1.0\) represents the Just Noticeable Difference (JND) to a standard human observer. By guiding our evolutionary algorithm with \(\Delta E\), strokes are selected to minimize human perceptual error rather than device-dependent RGB counts.
+      </p>
+    </section>
+
+    <!-- SECTION 4: SOBEL EDGE SALIENCY -->
+    <section id="sobel-filter">
+      <h2><span class="section-num">4</span> Sobel Edge Saliency Convolution</h2>
+      <p>
+        Human visual cognition prioritizes <strong>edges and structural silhouettes</strong> over smooth interior gradients. In naive pixel matching, an algorithm might happily misalign an eye contour if it gets the skin tone 0.5% closer.
+      </p>
+      <p>
+        We compute a structural edge saliency map of the target image before evolution begins using a \(3 \times 3\) <strong>Sobel Convolution Filter</strong>:
+      </p>
+      <div class="math-card">
+        \[
+        K_x = \begin{bmatrix} -1 & 0 & +1 \\ -2 & 0 & +2 \\ -1 & 0 & +1 \end{bmatrix}, \quad
+        K_y = \begin{bmatrix} -1 & -2 & -1 \\ 0 & 0 & 0 \\ +1 & +2 & +1 \end{bmatrix}
+        \]
+      </div>
+      <p>
+        The gradient magnitude \(G(x, y)\) produces an edge saliency weight map \(W(x, y)\):
+      </p>
+      <div class="math-card">
+        \[
+        G(x, y) = \sqrt{(I * K_x)^2 + (I * K_y)^2}
+        \]
+        \[
+        W(x, y) = 1.0 + \gamma \cdot \frac{G(x, y)}{\max(G)}
+        \]
+      </div>
+      <p>
+        Where \(\gamma \ge 0\) is the edge emphasis factor (typically 2.0 to 4.0). Any pixel residing on a sharp visual contour carries multiple times the penalty of a flat background pixel, forcing the genetic painter to delineate facial features, horizon lines, and object boundaries first.
+      </p>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE SIMULATOR -->
+    <section id="interactive-visualizer">
+      <h2><span class="section-num">5</span> In-Browser Perceptual Comparator</h2>
+      <p>
+        Explore how the target image looks through raw RGB, perceptual CIELAB lightness, and Sobel edge saliency filters:
+      </p>
+
+      <div class="sim-card">
+        <div class="sim-view-modes">
+          <button class="mode-btn active" id="btnModeOriginal">Original Target</button>
+          <button class="mode-btn" id="btnModeCielab">CIELAB Lightness (\(L^*\))</button>
+          <button class="mode-btn" id="btnModeSobel">Sobel Edge Saliency Map</button>
+          <button class="mode-btn" id="btnModeHeatmap">Perceptual Error Heatmap</button>
+        </div>
+
+        <div class="sim-canvases">
+          <div class="canvas-panel">
+            <canvas id="targetCanvas" width="220" height="220"></canvas>
+            <span id="canvasCaption">Source Target Image</span>
+          </div>
+          <div class="canvas-panel">
+            <canvas id="evolvedCanvas" width="220" height="220"></canvas>
+            <span>Evolved Vector Approximator</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+          Active Edge Penalty Multiplier: <strong id="lblEdgeGamma" style="color: var(--highlight);">3.0x</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: KOTLIN EVALUATOR -->
+    <section id="kotlin-evaluator">
+      <h2><span class="section-num">6</span> Zero-Allocation LUT Evaluator</h2>
+      <p>
+        Converting RGB to CIE \(L^*a^*b^*\) requires intermediate non-linear gamma decoding and matrix transformations to CIE XYZ:
+      </p>
+      <div class="math-card">
+        \[
+        \begin{bmatrix} X \\ Y \\ Z \end{bmatrix} = \begin{bmatrix} 
+        0.4124 & 0.3576 & 0.1805 \\
+        0.2126 & 0.7152 & 0.0722 \\
+        0.0193 & 0.1192 & 0.9505
+        \end{bmatrix} \begin{bmatrix} R_{linear} \\ G_{linear} \\ B_{linear} \end{bmatrix}
+        \]
+      </div>
+      <p>
+        Executing matrix multiplication per pixel inside an inner loop evaluating 10,000 generations per second would cripple performance. We solve this by <strong>precomputing a 3D Lookup Table (LUT)</strong>:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>PerceptualEvaluator.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+        </div>
+        <pre><code class="language-kotlin">class PerceptualEvaluator(val target: TargetImage, val edgeEmphasis: Float = 3.0f) {
+    // Precomputed weight map from 3x3 Sobel convolution
+    val edgeWeights = FloatArray(target.width * target.height)
+
+    // Precomputed RGB -> Lab packed lookup table (32x32x32 sampled)
+    val labLut = FloatArray(32 * 32 * 32 * 3)
+
+    init {
+        computeSobelWeights()
+        precomputeLabLut()
+    }
+
+    private fun computeSobelWeights() {
+        val w = target.width
+        val h = target.height
+        val pixels = target.pixelBuffer
+
+        for (y in 1 until h - 1) {
+            for (x in 1 until w - 1) {
+                // Compute horizontal and vertical gradients
+                var gx = 0f
+                var gy = 0f
+
+                // Kernel convolution omitted for brevity...
+                val magnitude = kotlin.math.sqrt(gx * gx + gy * gy)
+                edgeWeights[y * w + x] = 1.0f + edgeEmphasis * magnitude
+            }
+        }
+    }
+
+    fun evaluatePerceptual(candidateBuffer: IntArray): Double {
+        var totalError = 0.0
+        val size = target.width * target.height
+
+        for (i in 0 until size) {
+            val c1 = candidateBuffer[i]
+            val c2 = target.pixelBuffer[i]
+
+            // Fast lookup in precomputed Lab table
+            val dL = getL(c1) - getL(c2)
+            val da = getA(c1) - getA(c2)
+            val db = getB(c1) - getB(c2)
+            val deltaE = kotlin.math.sqrt(dL * dL + da * da + db * db)
+
+            // Weight error by structural edge saliency
+            totalError += deltaE * edgeWeights[i]
+        }
+        return totalError
+    }
+
+    private fun getL(argb: Int): Float = labLut[(((argb shr 19) and 0x1F) shl 10) or (((argb shr 11) and 0x1F) shl 5) or ((argb shr 3) and 0x1F)]
+    private fun getA(argb: Int): Float = labLut[((((argb shr 19) and 0x1F) shl 10) or (((argb shr 11) and 0x1F) shl 5) or ((argb shr 3) and 0x1F)) + 1]
+    private fun getB(argb: Int): Float = labLut[((((argb shr 19) and 0x1F) shl 10) or (((argb shr 11) and 0x1F) shl 5) or ((argb shr 3) and 0x1F)) + 2]
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Validate your grasp of perceptual metrics and convolutional edge detection.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">Why does a Sobel weight mask dramatically improve aesthetic portrait approximation?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Sobel filters analyze spatial gradients, not file sizes.">Sobel filters reduce raster memory usage.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Edges define human recognition, so prioritizing them preserves subject structure.">Edges determine human cognitive feature recognition.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Edge weights enhance accuracy, not generation frequency.">Sobel filters double mutation loop throughput.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Sobel kernels apply to rasters regardless of primitive type.">Sobel masks convert Béziers into polygons.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>
+          Read the CIE 1976 technical specification on <a href="https://en.wikipedia.org/wiki/CIELAB_color_space" target="_blank" rel="noopener">CIELAB Color Space and Color Difference Formulas</a>, alongside Irwin Sobel and Gary Feldman's historical work on <em>An Isotropic \(3 \times 3\) Image Gradient Operator</em>.
+        </p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>
+          Want to see how adjusting the \(\gamma\) edge multiplier impacts the brush stroke density around eyes and contours? Ask in chat!
+        </p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0007-adaptive-annealing-pyramids.html" class="nav-btn">⬅ Lesson 7: Adaptive Annealing</a>
+        <a href="0009-parsimony-pressure-style-constraints.html" class="nav-btn">Next: Lesson 9 – Parsimony Pressure & Style ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // INTERACTIVE PERCEPTUAL / SOBEL CANVAS
+    const tCanvas = document.getElementById('targetCanvas');
+    const tCtx = tCanvas.getContext('2d');
+    const eCanvas = document.getElementById('evolvedCanvas');
+    const eCtx = eCanvas.getContext('2d');
+    const caption = document.getElementById('canvasCaption');
+
+    // Draw stylized synthetic portrait onto target
+    function drawBaseArt(ctx) {
+      ctx.fillStyle = '#1e1b4b';
+      ctx.fillRect(0, 0, 220, 220);
+
+      // Warm background sun
+      ctx.beginPath();
+      ctx.arc(110, 100, 70, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+
+      // Sharp mountain silhouettes (high edge frequency)
+      ctx.beginPath();
+      ctx.moveTo(0, 220);
+      ctx.lineTo(60, 110);
+      ctx.lineTo(130, 180);
+      ctx.lineTo(180, 120);
+      ctx.lineTo(220, 220);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+    }
+
+    function renderEvolvedArt() {
+      eCtx.fillStyle = '#1e1b4b';
+      eCtx.fillRect(0, 0, 220, 220);
+
+      // Simulating curved strokes aligned to mountain contour edges
+      const strokes = [
+        { x1: 90, y1: 80, cx: 110, cy: 60, x2: 130, y2: 80, color: 'rgba(245, 158, 11, 0.7)', w: 14 },
+        { x1: 0, y1: 215, cx: 30, cy: 160, x2: 60, y2: 110, color: 'rgba(15, 23, 42, 0.9)', w: 8 },
+        { x1: 60, y1: 110, cx: 95, cy: 145, x2: 130, y2: 180, color: 'rgba(15, 23, 42, 0.9)', w: 8 },
+        { x1: 130, y1: 180, cx: 155, cy: 150, x2: 180, y2: 120, color: 'rgba(15, 23, 42, 0.9)', w: 8 },
+        { x1: 180, y1: 120, cx: 200, cy: 170, x2: 220, y2: 220, color: 'rgba(15, 23, 42, 0.9)', w: 8 }
+      ];
+
+      for (const s of strokes) {
+        eCtx.beginPath();
+        eCtx.moveTo(s.x1, s.y1);
+        eCtx.quadraticCurveTo(s.cx, s.cy, s.x2, s.y2);
+        eCtx.strokeStyle = s.color;
+        eCtx.lineWidth = s.w;
+        eCtx.lineCap = 'round';
+        eCtx.stroke();
+      }
+    }
+
+    function showMode(mode) {
+      drawBaseArt(tCtx);
+      const imgData = tCtx.getImageData(0, 0, 220, 220);
+      const data = imgData.data;
+
+      if (mode === 'cielab') {
+        caption.textContent = 'CIELAB Perceptual Lightness Channel (L*)';
+        for (let i = 0; i < data.length; i += 4) {
+          // Approximate luminance
+          const l = 0.2126 * data[i] + 0.7152 * data[i+1] + 0.0722 * data[i+2];
+          data[i] = l;
+          data[i+1] = l;
+          data[i+2] = l;
+        }
+        tCtx.putImageData(imgData, 0, 0);
+      } else if (mode === 'sobel') {
+        caption.textContent = 'Sobel Edge Saliency Weight Map (G)';
+        const w = 220, h = 220;
+        const gray = new Float32Array(w * h);
+        for (let i = 0; i < w * h; i++) {
+          gray[i] = 0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2];
+        }
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const gx = (-1 * gray[(y-1)*w + (x-1)]) + (1 * gray[(y-1)*w + (x+1)]) +
+                       (-2 * gray[y*w + (x-1)])     + (2 * gray[y*w + (x+1)]) +
+                       (-1 * gray[(y+1)*w + (x-1)]) + (1 * gray[(y+1)*w + (x+1)]);
+            const gy = (-1 * gray[(y-1)*w + (x-1)]) + (-2 * gray[(y-1)*w + x]) + (-1 * gray[(y-1)*w + (x+1)]) +
+                       (1 * gray[(y+1)*w + (x-1)])  + (2 * gray[(y+1)*w + x])  + (1 * gray[(y+1)*w + (x+1)]);
+            const mag = Math.min(255, Math.sqrt(gx*gx + gy*gy) * 1.5);
+            const idx = (y * w + x) * 4;
+            data[idx] = mag * 0.2;
+            data[idx+1] = mag * 0.8;
+            data[idx+2] = mag;
+          }
+        }
+        tCtx.putImageData(imgData, 0, 0);
+      } else if (mode === 'heatmap') {
+        caption.textContent = 'Perceptual Residual Error Heatmap';
+        for (let i = 0; i < data.length; i += 4) {
+          const diff = Math.abs(data[i] - 120);
+          data[i] = diff * 2;
+          data[i+1] = 0;
+          data[i+2] = 255 - diff;
+        }
+        tCtx.putImageData(imgData, 0, 0);
+      } else {
+        caption.textContent = 'Source Target Image';
+      }
+    }
+
+    const buttons = {
+      original: document.getElementById('btnModeOriginal'),
+      cielab: document.getElementById('btnModeCielab'),
+      sobel: document.getElementById('btnModeSobel'),
+      heatmap: document.getElementById('btnModeHeatmap')
+    };
+
+    function setActiveBtn(activeKey) {
+      Object.keys(buttons).forEach(k => {
+        if (k === activeKey) buttons[k].classList.add('active');
+        else buttons[k].classList.remove('active');
+      });
+    }
+
+    buttons.original.addEventListener('click', () => { setActiveBtn('original'); showMode('original'); });
+    buttons.cielab.addEventListener('click', () => { setActiveBtn('cielab'); showMode('cielab'); });
+    buttons.sobel.addEventListener('click', () => { setActiveBtn('sobel'); showMode('sobel'); });
+    buttons.heatmap.addEventListener('click', () => { setActiveBtn('heatmap'); showMode('heatmap'); });
+
+    drawBaseArt(tCtx);
+    renderEvolvedArt();
+  </script>
+</body>
+</html>

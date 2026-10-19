@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 7: Adaptive Annealing & Multi-Resolution Pyramids</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- MathJax for LaTeX mathematical markup -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .pyramid-vis {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 1.5rem;
+      margin: 2rem 0;
+      flex-wrap: wrap;
+    }
+    .pyramid-level {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .sim-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .sim-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.25rem 0;
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .sim-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .sim-control-group label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .sim-canvas-wrapper {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+    .sim-canvas {
+      background: #000;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      max-width: 100%;
+    }
+    .sim-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .sim-metric {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+    .sim-metric .val {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: var(--highlight);
+    }
+    .sim-metric .lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .sim-btn-group {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .sim-btn {
+      background: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .sim-btn:hover {
+      opacity: 0.9;
+    }
+    .sim-btn.secondary {
+      background: #334155;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li class="nav-header">Phase 1: Foundations</li>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+        <li class="nav-header">Phase 2: Track 1 - Concurrency</li>
+        <li><a href="0006-multicore-island-model.html">6. Multi-Core Island Model</a></li>
+        <li><a href="0007-adaptive-annealing-pyramids.html" class="active">7. Adaptive Annealing</a></li>
+        <li class="nav-header">Phase 2: Track 2 - Aesthetics</li>
+        <li><a href="0008-perceptual-fitness-cielab-sobel.html">8. Perceptual Fitness</a></li>
+        <li><a href="0009-parsimony-pressure-style-constraints.html">9. Parsimony Pressure</a></li>
+        <li class="nav-header">Phase 2: Track 3 - Expressiveness</li>
+        <li><a href="0010-diverse-vector-primitives.html">10. Diverse Primitives</a></li>
+        <li><a href="0011-svg-export-timelapse-capture.html">11. SVG Vector Export</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#scale-dilemma">1. The Exploration vs Exploitation Dilemma</a></li>
+        <li><a href="#simulated-annealing">2. Temperature & Annealing Schedules</a></li>
+        <li><a href="#rechenberg-rule">3. Rechenberg's 1/5th Success Rule</a></li>
+        <li><a href="#image-pyramids">4. Multi-Resolution Image Pyramids</a></li>
+        <li><a href="#interactive-simulator">5. In-Browser Annealing Simulator</a></li>
+        <li><a href="#kotlin-scheduler">6. Implementing the Annealing Scheduler</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 7 &bull; Algorithmic Optimization</div>
+      <h1>Adaptive Annealing & Multi-Resolution Pyramids</h1>
+      <p class="lead">
+        Accelerate convergence by dynamically scaling mutation variances through thermodynamic annealing and coarse-to-fine multi-resolution image pyramids.
+      </p>
+    </header>
+
+    <!-- SECTION 1: THE DILEMMA -->
+    <section id="scale-dilemma">
+      <h2><span class="section-num">1</span> The Exploration vs Exploitation Dilemma</h2>
+      <p>
+        In our foundational hill climber, mutation step sizes (e.g., jittering control points by \(\pm 20\) pixels) were hardcoded constants. This creates a severe fundamental tension:
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>🔭 Early Stage (Macro Blocking)</h4>
+          <p>When starting from a blank canvas, large geometric shifts (jumping across half the canvas) are required to block in major compositional shapes and dominant background palettes.</p>
+        </div>
+        <div class="card">
+          <h4>🔬 Late Stage (Micro Refinement)</h4>
+          <p>After 50,000 generations, a \(\pm 20\)-pixel leap will almost certainly ruin a refined contour, causing candidate acceptance rates to plummet below \(0.01\%\). Only sub-pixel micro-nudges have a chance of succeeding.</p>
+        </div>
+      </div>
+      <p>
+        Static mutation step sizes waste millions of CPU cycles testing wild mutations that cannot possibly improve a mature painting. To maintain high acceptance velocity throughout the run, we introduce <strong>dynamic step-size annealing</strong>.
+      </p>
+    </section>
+
+    <!-- SECTION 2: ANNEALING SCHEDULES -->
+    <section id="simulated-annealing">
+      <h2><span class="section-num">2</span> Temperature & Annealing Schedules</h2>
+      <p>
+        Inspired by metallurgy—where molten metal cools slowly so crystalline structures settle into minimal-energy configurations—we define a system <strong>temperature</strong> \(T(t) \in (0, 1]\) that decays over generation count \(t\).
+      </p>
+      <p>
+        An exponential cooling schedule dampens the coordinate mutation variance \(\sigma(t)\):
+      </p>
+      <div class="math-card">
+        \[
+        \sigma(t) = \sigma_{min} + (\sigma_{0} - \sigma_{min}) \cdot \exp\left(-\frac{t}{\tau}\right)
+        \]
+      </div>
+      <p>
+        Where \(\sigma_{0}\) is the initial wide search radius (e.g. 80 px), \(\sigma_{min}\) is the asymptotic micro-refinement floor (e.g. 1.5 px), and \(\tau\) is the decay time constant controlling cooling duration.
+      </p>
+    </section>
+
+    <!-- SECTION 3: RECHENBERG'S RULE -->
+    <section id="rechenberg-rule">
+      <h2><span class="section-num">3</span> Rechenberg's 1/5th Success Rule</h2>
+      <p>
+        Rather than relying strictly on predetermined time decay, Hans-Paul Rechenberg proved mathematically that an evolutionary search converges at maximum theoretical velocity when approximately <strong>one out of every five mutations is accepted</strong>:
+      </p>
+      <div class="math-card">
+        \[
+        \text{Acceptance Ratio } r_{acc} = \frac{N_{accepted}}{N_{evaluated}} \approx 0.20
+        \]
+      </div>
+      <p>
+        We measure \(r_{acc}\) over a rolling window of 1,000 generations and adapt \(\sigma\) dynamically:
+      </p>
+      <div class="math-card">
+        \[
+        \sigma \leftarrow \begin{cases}
+        \sigma \cdot 1.15 & \text{if } r_{acc} > 0.20 \quad \text{(landscape is smooth; explore wider)} \\
+        \sigma \cdot 0.85 & \text{if } r_{acc} < 0.20 \quad \text{(landscape is steep; narrow focus)}
+        \end{cases}
+        \]
+      </div>
+    </section>
+
+    <!-- SECTION 4: IMAGE PYRAMIDS -->
+    <section id="image-pyramids">
+      <h2><span class="section-num">4</span> Multi-Resolution Image Pyramids</h2>
+      <p>
+        Computing pixel differences across a high-resolution \(1024 \times 1024\) canvas requires comparing \(1,048,576\) pixels per generation. During the initial 5,000 generations, broad color blocking does not require high pixel fidelity.
+      </p>
+      <p>
+        By constructing a <strong>Gaussian Image Pyramid</strong>, we evolve coarse strokes on downsampled surfaces before progressively upscaling:
+      </p>
+
+      <div class="pyramid-vis">
+        <div class="pyramid-level" style="width: 140px;">
+          <div style="width: 64px; height: 64px; background: #2563eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">64×64</div>
+          <span style="font-size: 0.8rem; font-weight: bold; color: var(--highlight);">Level 2: Coarse</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">4,096 pixels (16x faster)</span>
+        </div>
+
+        <div class="pyramid-level" style="width: 180px;">
+          <div style="width: 96px; height: 96px; background: #7c4dff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold;">128×128</div>
+          <span style="font-size: 0.8rem; font-weight: bold; color: var(--highlight);">Level 1: Medium</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">16,384 pixels (4x faster)</span>
+        </div>
+
+        <div class="pyramid-level" style="width: 220px;">
+          <div style="width: 128px; height: 128px; background: #10b981; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; font-weight: bold;">256×256</div>
+          <span style="font-size: 0.8rem; font-weight: bold; color: var(--highlight);">Level 0: Full</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">65,536 pixels (Target detail)</span>
+        </div>
+      </div>
+
+      <p>
+        When transitioning from Level 2 to Level 1, we multiply all coordinate genes by the upscaling factor \(2\times\). We can also <strong>freeze</strong> the initial foundation strokes so subsequent generations only introduce new fine-detail brushes.
+      </p>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE SIMULATOR -->
+    <section id="interactive-simulator">
+      <h2><span class="section-num">5</span> In-Browser Annealing Simulator</h2>
+      <p>
+        Experiment with temperature decay schedules and resolution tiers. Watch how the mutation radius indicator shrinks as the annealing temperature cools.
+      </p>
+
+      <div class="sim-card">
+        <div class="sim-controls">
+          <div class="sim-control-group">
+            <label for="tempSlider">Initial Temperature: <strong id="lblTemp" style="color: var(--highlight);">1.0</strong></label>
+            <input type="range" id="tempSlider" min="0.1" max="1.0" step="0.05" value="1.0">
+          </div>
+          <div class="sim-control-group">
+            <label for="pyramidSelect">Active Pyramid Level:</label>
+            <select id="pyramidSelect" style="background: var(--code-bg); color: #fff; border: 1px solid var(--card-border); padding: 0.4rem; border-radius: 4px;">
+              <option value="64">Coarse (64×64)</option>
+              <option value="128">Medium (128×128)</option>
+              <option value="256" selected>Full Res (256×256)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sim-canvas-wrapper">
+          <canvas id="annealCanvas" class="sim-canvas" width="300" height="300"></canvas>
+        </div>
+
+        <div class="sim-metrics">
+          <div class="sim-metric">
+            <div class="val" id="valGen">0</div>
+            <div class="lbl">Generations</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="valSigma">50.0 px</div>
+            <div class="lbl">Current Mutation Variance (σ)</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="valAcceptRate">0.0%</div>
+            <div class="lbl">Acceptance Ratio</div>
+          </div>
+          <div class="sim-metric">
+            <div class="val" id="valError">100.0%</div>
+            <div class="lbl">Approximation Error</div>
+          </div>
+        </div>
+
+        <div class="sim-btn-group">
+          <button class="sim-btn" id="btnToggleAnneal">Start Annealing Run</button>
+          <button class="sim-btn secondary" id="btnCoolNow">Rapid Cool (Step 5k)</button>
+          <button class="sim-btn secondary" id="btnResetAnneal">Reset Run</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: KOTLIN SCHEDULER -->
+    <section id="kotlin-scheduler">
+      <h2><span class="section-num">6</span> Implementing the Annealing Scheduler</h2>
+      <p>
+        Encapsulate annealing dynamics into a clean, reusable Kotlin controller that modulates the mutation step size during runtime:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>AnnealingSchedule.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+        </div>
+        <pre><code class="language-kotlin">import kotlin.math.exp
+import kotlin.math.max
+
+class AnnealingSchedule(
+    val initialSigma: Float = 60.0f,
+    val minSigma: Float = 1.5f,
+    val tau: Double = 15_000.0
+) {
+    private var rollingAccepted = 0
+    private var rollingEvaluated = 0
+    var currentSigma: Float = initialSigma
+        private set
+
+    fun getSigma(generation: Long): Float {
+        // Base exponential temperature decay
+        val baseSigma = minSigma + (initialSigma - minSigma) * exp(-generation / tau).toFloat()
+        
+        // Dynamic adjustment based on Rechenberg's 1/5th rule
+        if (rollingEvaluated >= 500) {
+            val ratio = rollingAccepted.toFloat() / rollingEvaluated
+            if (ratio > 0.22f) {
+                currentSigma = (currentSigma * 1.05f).coerceAtMost(initialSigma)
+            } else if (ratio < 0.18f) {
+                currentSigma = (currentSigma * 0.95f).coerceAtLeast(minSigma)
+            }
+            rollingAccepted = 0
+            rollingEvaluated = 0
+        }
+
+        return max(minSigma, currentSigma)
+    }
+
+    fun recordOutcome(accepted: Boolean) {
+        rollingEvaluated++
+        if (accepted) rollingAccepted++
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <p>Verify your understanding of annealing dynamics and multi-scale image pyramids.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">According to Rechenberg's rule, what should happen when acceptance exceeds 20%?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Halting evolution terminates learning before fine convergence.">Halt the entire evolutionary process.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="A high acceptance rate indicates a smooth landscape where wider exploration is optimal.">Increase the mutation variance step.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Lowering temperature narrows the search when we want to expand it.">Decrease current system temperature.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Pyramid changes occur at designated generational milestones.">Advance downsampled pyramid levels immediately.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>
+          Read Scott Kirkpatrick, C. Daniel Gelatt, and Mario Vecchi's seminal 1983 paper, <a href="https://www.science.org/doi/10.1126/science.220.4598.671" target="_blank" rel="noopener">Optimization by Simulated Annealing</a> in <em>Science</em>. It establishes the mathematical equivalence between physical annealing in metallurgy and combinatorial search spaces.
+        </p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>
+          Curious how to generate downsampled target image bitmaps using Skia's native bicubic resampling filters? Inquire in chat, and we can inspect the image pipeline!
+        </p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0006-multicore-island-model.html" class="nav-btn">⬅ Lesson 6: Multi-Core Island Model</a>
+        <a href="0008-perceptual-fitness-cielab-sobel.html" class="nav-btn">Next: Lesson 8 – Perceptual Fitness & Sobel ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // SIMULATED ANNEALING INTERACTIVE CANVAS
+    const canvas = document.getElementById('annealCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let simRunning = false;
+    let simInterval = null;
+    let generation = 0;
+    let acceptedCount = 0;
+    let rollingAccepted = 0;
+    let rollingEvaluated = 0;
+    let currentError = 1.0;
+    let currentSigma = 50.0;
+
+    const tempSlider = document.getElementById('tempSlider');
+    const lblTemp = document.getElementById('lblTemp');
+    const pyramidSelect = document.getElementById('pyramidSelect');
+
+    tempSlider.addEventListener('input', (e) => {
+      lblTemp.textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    let strokes = [];
+
+    function initStrokes() {
+      strokes = [];
+      for (let i = 0; i < 25; i++) {
+        strokes.push({
+          x1: Math.random() * 300,
+          y1: Math.random() * 300,
+          cx: Math.random() * 300,
+          cy: Math.random() * 300,
+          x2: Math.random() * 300,
+          y2: Math.random() * 300,
+          color: `hsla(${Math.floor(Math.random() * 360)}, 70%, 55%, 0.35)`,
+          w: 8 + Math.random() * 12
+        });
+      }
+    }
+
+    function renderScene() {
+      ctx.fillStyle = '#0f111a';
+      ctx.fillRect(0, 0, 300, 300);
+
+      // Render strokes
+      for (const s of strokes) {
+        ctx.beginPath();
+        ctx.moveTo(s.x1, s.y1);
+        ctx.quadraticCurveTo(s.cx, s.cy, s.x2, s.y2);
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.w;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+
+      // Draw active mutation variance circle in corner HUD
+      ctx.beginPath();
+      ctx.arc(45, 45, Math.max(3, currentSigma * 0.6), 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '10px sans-serif';
+      ctx.fillText(`±σ: ${currentSigma.toFixed(1)}px`, 25, 75);
+    }
+
+    function step() {
+      for (let i = 0; i < 15; i++) {
+        generation++;
+        rollingEvaluated++;
+
+        // Calculate sigma with exponential decay
+        const temp = parseFloat(tempSlider.value);
+        currentSigma = Math.max(1.5, 50.0 * temp * Math.exp(-generation / 6000));
+
+        const idx = Math.floor(Math.random() * strokes.length);
+        const s = strokes[idx];
+
+        // Acceptance depends on temperature and error
+        const acceptProb = Math.max(0.015, (currentError * 0.3) * (currentSigma / 50.0));
+        if (Math.random() < acceptProb) {
+          acceptedCount++;
+          rollingAccepted++;
+          s.cx += (Math.random() - 0.5) * currentSigma * 2;
+          s.cy += (Math.random() - 0.5) * currentSigma * 2;
+          currentError *= 0.9992;
+        }
+      }
+      renderScene();
+      updateUI();
+    }
+
+    function updateUI() {
+      document.getElementById('valGen').textContent = generation.toLocaleString();
+      document.getElementById('valSigma').textContent = `${currentSigma.toFixed(1)} px`;
+      const rate = rollingEvaluated > 0 ? (rollingAccepted / rollingEvaluated * 100).toFixed(1) : '0.0';
+      document.getElementById('valAcceptRate').textContent = `${rate}%`;
+      document.getElementById('valError').textContent = `${(currentError * 100).toFixed(1)}%`;
+    }
+
+    const btnToggle = document.getElementById('btnToggleAnneal');
+    const btnCool = document.getElementById('btnCoolNow');
+    const btnReset = document.getElementById('btnResetAnneal');
+
+    btnToggle.addEventListener('click', () => {
+      simRunning = !simRunning;
+      if (simRunning) {
+        btnToggle.textContent = 'Pause Annealing';
+        btnToggle.style.backgroundColor = '#f59e0b';
+        simInterval = setInterval(step, 20);
+      } else {
+        btnToggle.textContent = 'Resume Annealing';
+        btnToggle.style.backgroundColor = '#7c4dff';
+        clearInterval(simInterval);
+      }
+    });
+
+    btnCool.addEventListener('click', () => {
+      generation += 5000;
+      step();
+    });
+
+    btnReset.addEventListener('click', () => {
+      simRunning = false;
+      clearInterval(simInterval);
+      btnToggle.textContent = 'Start Annealing Run';
+      btnToggle.style.backgroundColor = '#7c4dff';
+      generation = 0;
+      acceptedCount = 0;
+      rollingAccepted = 0;
+      rollingEvaluated = 0;
+      currentError = 1.0;
+      currentSigma = 50.0;
+      initStrokes();
+      renderScene();
+      updateUI();
+    });
+
+    initStrokes();
+    renderScene();
+    updateUI();
+  </script>
+</body>
+</html>

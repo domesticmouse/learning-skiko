@@ -1,6 +1,6 @@
 # Course Curriculum & Lesson Plans
 
-Comprehensive lesson plan for **Genetic Art with Kotlin and Skiko**. This curriculum guides the learner from building standalone hardware-accelerated desktop canvases from the command line through to high-performance evolutionary algorithms, multi-core island concurrency, perceptual color spaces, and vector exports.
+Comprehensive lesson plan for **Genetic Art with Kotlin and Skiko**. This curriculum guides the learner from building standalone hardware-accelerated desktop canvases from the command line through to high-performance evolutionary algorithms, multi-core island concurrency, perceptual color spaces, diverse vector primitives, and SVG vector exports.
 
 ---
 
@@ -16,40 +16,28 @@ Comprehensive lesson plan for **Genetic Art with Kotlin and Skiko**. This curric
 
 ---
 
-## Phase 2: Advanced Extensions & Scaling (Roadmap)
+## Phase 2: Advanced Extensions & Scaling (Completed)
 
 ### Track 1: Algorithmic Scaling & Concurrency
-* **Lesson 0006: Multi-Core Island Model & $(1+\lambda)$ Strategy**
-  * **Objective**: Scale candidate generation across multi-core CPUs without synchronization bottlenecks.
-  * **Concepts**: Fork-join and worker pool concurrency, $(1+\lambda)$ selection pressure, independent population islands, asynchronous champion migration topology to escape local plateaus.
-  * **Hands-on Target**: Refactor `GeneticPainter.kt` to coordinate multiple evaluator threads and implement an island migration ring.
 
-* **Lesson 0007: Adaptive Annealing & Multi-Resolution Pyramids**
-  * **Objective**: Accelerate convergence speed and fine-detail resolution through dynamic scheduling.
-  * **Concepts**: Simulated annealing temperature schedules (decaying mutation delta variances over time), multi-scale image pyramids (evolving broad strokes on $64\times64$, freezing lower layers, and refining at $256\times256$).
-  * **Hands-on Target**: Implement multi-stage annealing in `GeneticPainter.kt` and pyramid downsampling in `TargetImage.kt`.
+| Lesson | Title | Core Topics |
+| :--- | :--- | :--- |
+| **[0006](file:///Users/brett/tmp/kotlin-experiment/lessons/0006-multicore-island-model.html)** | **Multi-Core Island Model & $(1+\lambda)$ Strategy** | Thread pool concurrency, $(1+\lambda)$ evaluation pressure, isolated demes, asynchronous ring champion migration |
+| **[0007](file:///Users/brett/tmp/kotlin-experiment/lessons/0007-adaptive-annealing-pyramids.html)** | **Adaptive Annealing & Multi-Resolution Pyramids** | Simulated annealing cooling schedules, Rechenberg 1/5th success rule, coarse-to-fine Gaussian image pyramids |
 
 ### Track 2: Fitness Models & Perceptual Aesthetics
-* **Lesson 0008: Perceptual Color Distances & Edge-Aware Fitness**
-  * **Objective**: Replace naive RGB Euclidean differences with human-vision-aligned perceptual metrics.
-  * **Concepts**: CIELAB $\Delta E 76 / \Delta E 94$ color space conversion, luminance weighting, Sobel filter convolution kernels to boost fitness weight on structural contours and edges.
-  * **Hands-on Target**: Extend `Evaluator.kt` with a Sobel edge-detection pre-pass and CIELAB lookup tables.
 
-* **Lesson 0009: Parsimony Pressure & Style Constraints**
-  * **Objective**: Steer evolutionary convergence toward artistic and minimalist aesthetics rather than photo-matching.
-  * **Concepts**: Multi-objective fitness (Pareto dominance vs weighted penalties), parsimony pressure penalizing total stroke count and stroke surface area, brush directionality biasing.
-  * **Hands-on Target**: Add configurable complexity regularization penalties to candidate fitness scores in `Evaluator.kt`.
+| Lesson | Title | Core Topics |
+| :--- | :--- | :--- |
+| **[0008](file:///Users/brett/tmp/kotlin-experiment/lessons/0008-perceptual-fitness-cielab-sobel.html)** | **Perceptual Color Distances & Edge-Aware Fitness** | Human color vision, CIE $L^*a^*b^*$ $\Delta E$ metrics, precomputed 3D LUTs, Sobel convolution edge saliency masks |
+| **[0009](file:///Users/brett/tmp/kotlin-experiment/lessons/0009-parsimony-pressure-style-constraints.html)** | **Parsimony Pressure & Style Constraints** | Genetic bloat prevention, Pareto optimality frontiers, stroke count & area penalties, impressionist styling |
 
 ### Track 3: Chromosome Expressiveness & Rendering
-* **Lesson 0010: Diverse Vector Primitives & Texture Shaders**
-  * **Objective**: Expand the visual vocabulary of the genetic painter beyond uniform curved lines.
-  * **Concepts**: Cubic Bézier curves, tapered pressure dynamics (variable stroke width profiles), translucent convex polygon genes, Skia gradient shaders (`Shader.makeLinearGradient`).
-  * **Hands-on Target**: Create polymorphic gene interfaces and implement `PolygonGene` / `TaperedStrokeGene` in `StrokeGene.kt`.
 
-* **Lesson 0011: SVG Vector Export & Time-Lapse Capture**
-  * **Objective**: Transform evolved artwork into infinite-resolution vector assets and video artifacts.
-  * **Concepts**: Translating Skia paths and paint styles directly into valid W3C SVG XML documents, automated milestone frame rendering, assembling time-lapse video via CLI (`ffmpeg`).
-  * **Hands-on Target**: Implement SVG serializer in `Painting.kt` and frame-dump export hooks in `Main.kt`.
+| Lesson | Title | Core Topics |
+| :--- | :--- | :--- |
+| **[0010](file:///Users/brett/tmp/kotlin-experiment/lessons/0010-diverse-vector-primitives.html)** | **Diverse Vector Primitives & Texture Shaders** | Cubic Bézier inflection curves, pressure-tapered calligraphy paths, convex polygon meshes, Skia gradient shaders |
+| **[0011](file:///Users/brett/tmp/kotlin-experiment/lessons/0011-svg-export-timelapse-capture.html)** | **SVG Vector Export & Time-Lapse Capture** | W3C SVG XML path translation, infinite vector scalability, checkpointing, CLI video rendering via FFmpeg |
 
 ---
 

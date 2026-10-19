@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 10: Diverse Vector Primitives & Texture Shaders</title>
+  
+  <!-- PrismJS CSS & Theme -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
+  <!-- MathJax for LaTeX mathematical markup -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Shared Course Styles -->
+  <link rel="stylesheet" href="../assets/lesson-style.css">
+
+  <style>
+    .primitives-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .primitive-card {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .primitive-card h4 {
+      color: var(--highlight);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .sim-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+    }
+    .primitive-selector {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .prim-btn {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.5rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .prim-btn.active {
+      background: var(--accent-color);
+      border-color: var(--accent-color);
+      color: #fff;
+    }
+    .sim-canvas-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .sim-canvas-center canvas {
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      background: #000;
+    }
+    .code-container {
+      position: relative;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #1e2132;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .copy-btn {
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--accent-color);
+    }
+    pre[class*="language-"] {
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: var(--code-bg) !important;
+    }
+  </style>
+</head>
+<body class="line-numbers">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course: Genetic Art with Skiko</div>
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li class="nav-header">Phase 1: Foundations</li>
+        <li><a href="0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+        <li class="nav-header">Phase 2: Track 1 - Concurrency</li>
+        <li><a href="0006-multicore-island-model.html">6. Multi-Core Island Model</a></li>
+        <li><a href="0007-adaptive-annealing-pyramids.html">7. Adaptive Annealing</a></li>
+        <li class="nav-header">Phase 2: Track 2 - Aesthetics</li>
+        <li><a href="0008-perceptual-fitness-cielab-sobel.html">8. Perceptual Fitness</a></li>
+        <li><a href="0009-parsimony-pressure-style-constraints.html">9. Parsimony Pressure</a></li>
+        <li class="nav-header">Phase 2: Track 3 - Expressiveness</li>
+        <li><a href="0010-diverse-vector-primitives.html" class="active">10. Diverse Primitives</a></li>
+        <li><a href="0011-svg-export-timelapse-capture.html">11. SVG Vector Export</a></li>
+      </ul>
+    </div>
+    <div class="series-nav">
+      <h3>In This Lesson</h3>
+      <ul>
+        <li><a href="#beyond-quadratic">1. Beyond Uniform Quadratic Arcs</a></li>
+        <li><a href="#cubic-beziers">2. Cubic Béziers & Inflection Points</a></li>
+        <li><a href="#tapered-strokes">3. Pressure-Tapered Calligraphy Strokes</a></li>
+        <li><a href="#polygonal-genes">4. Translucent Convex Polygons</a></li>
+        <li><a href="#skia-shaders">5. Skia Gradient Shaders</a></li>
+        <li><a href="#interactive-sandbox">6. In-Browser Primitive Sandbox</a></li>
+        <li><a href="#polymorphic-architecture">7. Polymorphic Gene Architecture in Kotlin</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN ARTICLE -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Part 10 &bull; Expressiveness & Graphics</div>
+      <h1>Diverse Vector Primitives & Texture Shaders</h1>
+      <p class="lead">
+        Expand your painter's artistic vocabulary by implementing cubic Bézier splines, pressure-tapered calligraphy paths, low-poly convex polygons, and Skia gradient shaders.
+      </p>
+    </header>
+
+    <!-- SECTION 1: BEYOND QUADRATIC -->
+    <section id="beyond-quadratic">
+      <h2><span class="section-num">1</span> Beyond Uniform Quadratic Arcs</h2>
+      <p>
+        In <a href="0002-vector-brush-strokes.html">Lesson 2</a>, our entire genome consisted of quadratic Bézier strokes with constant stroke width. While effective for simple curves, a quadratic curve can never change curvature direction (it cannot form an "S-curve").
+      </p>
+      <p>
+        To model realistic watercolor washes, calligraphic brush flourishes, and sharp geometric facets, we must empower our evolutionary engine with a <strong>polymorphic palette of vector primitives</strong>.
+      </p>
+    </section>
+
+    <!-- SECTION 2: CUBIC BEZIERS -->
+    <section id="cubic-beziers">
+      <h2><span class="section-num">2</span> Cubic Béziers & Inflection Points</h2>
+      <p>
+        A <strong>cubic Bézier curve</strong> is defined by four points: start point \(P_0\), two control handles \(P_1\) and \(P_2\), and end point \(P_3\):
+      </p>
+      <div class="math-card">
+        \[
+        B(t) = (1-t)^3 P_0 + 3(1-t)^2 t P_1 + 3(1-t) t^2 P_2 + t^3 P_3, \quad t \in [0, 1]
+        \]
+      </div>
+      <p>
+        Because it has two independent control points, a single cubic spline can bend into serpentines, wave crests, and sharp loops, allowing a single gene to represent complex organic forms such as eyelashes, hair strands, and flowing garments.
+      </p>
+    </section>
+
+    <!-- SECTION 3: TAPERED STROKES -->
+    <section id="tapered-strokes">
+      <h2><span class="section-num">3</span> Pressure-Tapered Calligraphy Strokes</h2>
+      <p>
+        Real artist brushes do not maintain a robotic, uniform cylinder of paint. When an artist touches the canvas, the stroke begins with a delicate point, broadens under pressure, and tapers off as the brush lifts:
+      </p>
+      <div class="math-card">
+        \[
+        w(t) = w_{start} \cdot (1-t) + w_{peak} \cdot 4t(1-t) + w_{end} \cdot t
+        \]
+      </div>
+      <p>
+        In Skia, we can render pressure-tapered paths either by evaluating normal vectors along the spine to construct a filled closed <code>Path</code> polygon, or by stroking overlapping path segments with graduated <code>strokeWidth</code> values.
+      </p>
+    </section>
+
+    <!-- SECTION 4: POLYGONAL GENES -->
+    <section id="polygonal-genes">
+      <h2><span class="section-num">4</span> Translucent Convex Polygons</h2>
+      <p>
+        Instead of curved lines, a chromosome can be composed of <strong>translucent convex polygons</strong> (typically 3 to 6 vertices). Evolving 50 to 100 semi-transparent triangles creates stunning <em>low-poly</em> or <em>cubist</em> artworks reminiscent of early vector experiments.
+      </p>
+      <p>
+        In Skia, rendering a polygon is lightning-fast:
+      </p>
+      <div class="code-container">
+        <div class="code-header"><span>Skia Polygon Snippet</span></div>
+        <pre><code class="language-kotlin">val path = Path().apply {
+    moveTo(vertices[0].x, vertices[0].y)
+    for (i in 1 until vertices.size) {
+        lineTo(vertices[i].x, vertices[i].y)
+    }
+    closePath()
+}
+canvas.drawPath(path, fillPaint)</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 5: SKIA SHADERS -->
+    <section id="skia-shaders">
+      <h2><span class="section-num">5</span> Skia Gradient Shaders</h2>
+      <p>
+        Skiko provides direct hardware-accelerated access to native Skia shaders via <code>Shader.makeLinearGradient</code> and <code>Shader.makeRadialGradient</code>:
+      </p>
+      <div class="code-container">
+        <div class="code-header"><span>Skia Linear Gradient Shader</span></div>
+        <pre><code class="language-kotlin">val shader = Shader.makeLinearGradient(
+    x0 = x1, y0 = y1, x1 = x2, y1 = y2,
+    colors = intArrayOf(colorStart, colorEnd),
+    positions = floatArrayOf(0.0f, 1.0f)
+)
+val paint = Paint().apply {
+    this.shader = shader
+    this.strokeWidth = width
+    this.style = PaintMode.STROKE
+}</code></pre>
+      </div>
+      <p>
+        When applied to brush strokes, gradient shaders emulate natural paint mixing, where a brush loaded with yellow on one edge and blue on the other creates an organic transition along its trajectory.
+      </p>
+    </section>
+
+    <!-- SECTION 6: INTERACTIVE SANDBOX -->
+    <section id="interactive-sandbox">
+      <h2><span class="section-num">6</span> In-Browser Primitive Sandbox</h2>
+      <p>
+        Test the visual expressiveness of each vector primitive type. Click "Mutate Primitive" to observe how its parameter space evolves:
+      </p>
+
+      <div class="sim-card">
+        <div class="primitive-selector">
+          <button class="prim-btn active" id="btnQuad">Quadratic Bézier</button>
+          <button class="prim-btn" id="btnCubic">Cubic Bézier (S-Curve)</button>
+          <button class="prim-btn" id="btnTaper">Pressure-Tapered</button>
+          <button class="prim-btn" id="btnPoly">Convex Polygon</button>
+          <button class="prim-btn" id="btnShader">Gradient Shader</button>
+        </div>
+
+        <div class="sim-canvas-center">
+          <canvas id="sandboxCanvas" width="360" height="260"></canvas>
+          <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">
+            Active Primitive: <strong id="lblActivePrim" style="color: var(--highlight);">Quadratic Bézier</strong> | 
+            Degrees of Freedom: <strong id="lblDof" style="color: var(--highlight);">8 parameters</strong>
+          </div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="sim-btn" id="btnMutatePrim">Mutate Primitive</button>
+            <button class="sim-btn secondary" id="btnRandomizePrim">Randomize Gene</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: POLYMORPHIC ARCHITECTURE -->
+    <section id="polymorphic-architecture">
+      <h2><span class="section-num">7</span> Polymorphic Gene Architecture in Kotlin</h2>
+      <p>
+        To combine diverse primitives in a single painting, define a <code>sealed interface Gene</code> in Kotlin:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Gene.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Paint
+
+sealed interface Gene {
+    fun render(canvas: Canvas)
+    fun mutate(canvasWidth: Int, canvasHeight: Int): Gene
+}
+
+data class CubicCurveGene(
+    val x0: Float, val y0: Float,
+    val cx1: Float, val cy1: Float,
+    val cx2: Float, val cy2: Float,
+    val x3: Float, val y3: Float,
+    val strokeWidth: Float,
+    val argb: Int
+) : Gene {
+    override fun render(canvas: Canvas) {
+        val path = org.jetbrains.skia.Path().apply {
+            moveTo(x0, y0)
+            cubicTo(cx1, cy1, cx2, cy2, x3, y3)
+        }
+        val paint = Paint().apply {
+            color = argb
+            strokeWidth = this@CubicCurveGene.strokeWidth
+            mode = org.jetbrains.skia.PaintMode.STROKE
+            isAntiAlias = true
+        }
+        canvas.drawPath(path, paint)
+    }
+
+    override fun mutate(canvasWidth: Int, canvasHeight: Int): Gene {
+        // Stochastic perturbation of control handles...
+        return copy(cx1 = cx1 + (Math.random().toFloat() - 0.5f) * 15f)
+    }
+}
+
+data class PolygonGene(
+    val points: List&lt;Pair&lt;Float, Float&gt;&gt;,
+    val argb: Int
+) : Gene {
+    override fun render(canvas: Canvas) {
+        val path = org.jetbrains.skia.Path().apply {
+            moveTo(points[0].first, points[0].second)
+            for (i in 1 until points.size) {
+                lineTo(points[i].first, points[i].second)
+            }
+            closePath()
+        }
+        val paint = Paint().apply {
+            color = argb
+            mode = org.jetbrains.skia.PaintMode.FILL
+            isAntiAlias = true
+        }
+        canvas.drawPath(path, paint)
+    }
+
+    override fun mutate(canvasWidth: Int, canvasHeight: Int): Gene {
+        // Perturb vertex coordinates...
+        return this
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
+    <section id="retrieval-quiz">
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
+      <p>Test your comprehension of advanced vector primitives and polymorphic chromosome structures.</p>
+
+      <div class="quiz-container">
+        <div class="quiz-question">What fundamental geometric feature can a cubic Bézier form that a quadratic Bézier cannot?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" data-correct="false" data-explanation="Both quadratic and cubic curves render straight lines when collinear.">Collinear linear segments.</div>
+          <div class="quiz-option" data-correct="true" data-explanation="Two control points permit an inflection point, enabling continuous S-shaped bends.">Curvature inflection points.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Closed regions require a path close operation, not cubic math.">Closed polygonal facets.</div>
+          <div class="quiz-option" data-correct="false" data-explanation="Color gradients are applied via Paint shaders, not curve order.">Bicolor gradient washes.</div>
+        </div>
+        <div class="quiz-feedback"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 9: NEXT STEPS -->
+    <section id="next-steps">
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
+      <div class="callout tip">
+        <div class="callout-title">📖 Recommended Primary Source</div>
+        <p>
+          Consult Michael Mortenson's <a href="https://books.google.com/books?id=0Jj-CAAAQBAJ" target="_blank" rel="noopener">Geometric Modeling</a> for the formal parametric mathematics of polynomial curves and splines, and explore the official <a href="https://api.skia.org/classSkShader.html" target="_blank" rel="noopener">Skia Shader Reference Documentation</a>.
+        </p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
+        <p>
+          Curious how to ensure random polygon mutations maintain convexity to avoid self-intersecting bowtie shapes? Ask in chat!
+        </p>
+      </div>
+
+      <div class="lesson-nav">
+        <a href="0009-parsimony-pressure-style-constraints.html" class="nav-btn">⬅ Lesson 9: Parsimony Pressure & Style</a>
+        <a href="0011-svg-export-timelapse-capture.html" class="nav-btn">Next: Lesson 11 – SVG Export & Time-Lapse ➔</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- PrismJS Core & Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="../assets/quiz-widget.js"></script>
+
+  <script>
+    function copyCode(btn) {
+      const codeBlock = btn.closest('.code-container').querySelector('code');
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    // INTERACTIVE PRIMITIVES SANDBOX
+    const canvas = document.getElementById('sandboxCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let currentMode = 'quad';
+    let geneState = {};
+
+    function initGene(mode) {
+      if (mode === 'quad') {
+        geneState = {
+          x1: 60, y1: 200, cx: 180, cy: 30, x2: 300, y2: 200,
+          w: 18, color: '#38bdf8'
+        };
+      } else if (mode === 'cubic') {
+        geneState = {
+          x1: 50, y1: 210, cx1: 120, cy1: 40, cx2: 240, cy2: 230, x2: 310, y2: 60,
+          w: 16, color: '#a855f7'
+        };
+      } else if (mode === 'taper') {
+        geneState = {
+          x1: 50, y1: 130, cx: 180, cy: 40, x2: 310, y2: 130,
+          wStart: 3, wPeak: 28, wEnd: 2, color: '#ec4899'
+        };
+      } else if (mode === 'poly') {
+        geneState = {
+          points: [
+            { x: 180, y: 40 },
+            { x: 290, y: 110 },
+            { x: 250, y: 220 },
+            { x: 110, y: 220 },
+            { x: 70, y: 110 }
+          ],
+          color: 'rgba(16, 185, 129, 0.65)'
+        };
+      } else if (mode === 'shader') {
+        geneState = {
+          x1: 50, y1: 200, cx1: 130, cy1: 50, cx2: 230, cy2: 220, x2: 310, y2: 70,
+          w: 22, color1: '#f59e0b', color2: '#06b6d4'
+        };
+      }
+      renderPrimitive();
+    }
+
+    function renderPrimitive() {
+      ctx.fillStyle = '#0f111a';
+      ctx.fillRect(0, 0, 360, 260);
+
+      if (currentMode === 'quad') {
+        ctx.beginPath();
+        ctx.moveTo(geneState.x1, geneState.y1);
+        ctx.quadraticCurveTo(geneState.cx, geneState.cy, geneState.x2, geneState.y2);
+        ctx.strokeStyle = geneState.color;
+        ctx.lineWidth = geneState.w;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Control guide
+        ctx.beginPath();
+        ctx.arc(geneState.cx, geneState.cy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+      } else if (currentMode === 'cubic') {
+        ctx.beginPath();
+        ctx.moveTo(geneState.x1, geneState.y1);
+        ctx.bezierCurveTo(geneState.cx1, geneState.cy1, geneState.cx2, geneState.cy2, geneState.x2, geneState.y2);
+        ctx.strokeStyle = geneState.color;
+        ctx.lineWidth = geneState.w;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Handles
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(geneState.cx1, geneState.cy1, 5, 0, Math.PI * 2);
+        ctx.arc(geneState.cx2, geneState.cy2, 5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (currentMode === 'taper') {
+        // Tapered calligraphy approximation
+        for (let t = 0; t <= 1.0; t += 0.02) {
+          const u = 1 - t;
+          const x = u * u * geneState.x1 + 2 * u * t * geneState.cx + t * t * geneState.x2;
+          const y = u * u * geneState.y1 + 2 * u * t * geneState.cy + t * t * geneState.y2;
+          const w = geneState.wStart * u + geneState.wPeak * 4 * t * u + geneState.wEnd * t;
+
+          ctx.beginPath();
+          ctx.arc(x, y, w / 2, 0, Math.PI * 2);
+          ctx.fillStyle = geneState.color;
+          ctx.fill();
+        }
+      } else if (currentMode === 'poly') {
+        ctx.beginPath();
+        ctx.moveTo(geneState.points[0].x, geneState.points[0].y);
+        for (let i = 1; i < geneState.points.length; i++) {
+          ctx.lineTo(geneState.points[i].x, geneState.points[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = geneState.color;
+        ctx.fill();
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        geneState.points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (currentMode === 'shader') {
+        const grad = ctx.createLinearGradient(geneState.x1, geneState.y1, geneState.x2, geneState.y2);
+        grad.addColorStop(0, geneState.color1);
+        grad.addColorStop(1, geneState.color2);
+
+        ctx.beginPath();
+        ctx.moveTo(geneState.x1, geneState.y1);
+        ctx.bezierCurveTo(geneState.cx1, geneState.cy1, geneState.cx2, geneState.cy2, geneState.x2, geneState.y2);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = geneState.w;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    const buttons = {
+      quad: document.getElementById('btnQuad'),
+      cubic: document.getElementById('btnCubic'),
+      taper: document.getElementById('btnTaper'),
+      poly: document.getElementById('btnPoly'),
+      shader: document.getElementById('btnShader')
+    };
+
+    function setMode(mode, name, dof) {
+      currentMode = mode;
+      Object.keys(buttons).forEach(k => {
+        if (k === mode) buttons[k].classList.add('active');
+        else buttons[k].classList.remove('active');
+      });
+      document.getElementById('lblActivePrim').textContent = name;
+      document.getElementById('lblDof').textContent = `${dof} parameters`;
+      initGene(mode);
+    }
+
+    buttons.quad.addEventListener('click', () => setMode('quad', 'Quadratic Bézier', 8));
+    buttons.cubic.addEventListener('click', () => setMode('cubic', 'Cubic Bézier (S-Curve)', 10));
+    buttons.taper.addEventListener('click', () => setMode('taper', 'Pressure-Tapered Calligraphy', 10));
+    buttons.poly.addEventListener('click', () => setMode('poly', 'Convex Polygon Mesh', 14));
+    buttons.shader.addEventListener('click', () => setMode('shader', 'Dual-Color Gradient Shader', 12));
+
+    document.getElementById('btnMutatePrim').addEventListener('click', () => {
+      if (currentMode === 'quad') {
+        geneState.cx += (Math.random() - 0.5) * 40;
+        geneState.cy += (Math.random() - 0.5) * 40;
+      } else if (currentMode === 'cubic') {
+        geneState.cx1 += (Math.random() - 0.5) * 35;
+        geneState.cy1 += (Math.random() - 0.5) * 35;
+        geneState.cx2 += (Math.random() - 0.5) * 35;
+        geneState.cy2 += (Math.random() - 0.5) * 35;
+      } else if (currentMode === 'taper') {
+        geneState.wPeak = Math.max(8, geneState.wPeak + (Math.random() - 0.5) * 8);
+        geneState.cx += (Math.random() - 0.5) * 30;
+      } else if (currentMode === 'poly') {
+        const pt = geneState.points[Math.floor(Math.random() * geneState.points.length)];
+        pt.x += (Math.random() - 0.5) * 25;
+        pt.y += (Math.random() - 0.5) * 25;
+      } else if (currentMode === 'shader') {
+        geneState.cx1 += (Math.random() - 0.5) * 30;
+        geneState.cx2 += (Math.random() - 0.5) * 30;
+      }
+      renderPrimitive();
+    });
+
+    document.getElementById('btnRandomizePrim').addEventListener('click', () => {
+      initGene(currentMode);
+    });
+
+    initGene('quad');
+  </script>
+</body>
+</html>
