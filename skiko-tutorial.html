@@ -361,8 +361,9 @@
       <li><a href="#writing-code">6. Writing the First App</a></li>
       <li><a href="#interactive-demo">7. Live Skiko Simulation</a></li>
       <li><a href="#cli-build-run">8. Building & Running in CLI</a></li>
-      <li><a href="#advanced-skia">9. Advanced Drawing Capabilities</a></li>
-      <li><a href="#troubleshooting">10. Common CLI Pitfalls</a></li>
+      <li><a href="#ktlint">9. Code Formatting & Ktlint</a></li>
+      <li><a href="#advanced-skia">10. Advanced Drawing Capabilities</a></li>
+      <li><a href="#troubleshooting">11. Common CLI Pitfalls</a></li>
     </ul>
   </nav>
 
@@ -521,6 +522,8 @@ touch src/main/kotlin/Main.kt</code></pre>
     kotlin("jvm") version "2.1.0"
     // 2. Apply the Application plugin for runnable CLI apps
     application
+    // 3. Apply the ktlint plugin for code formatting & style checks
+    id("org.jlleitschuh.gradle.ktlint") version "12.2.0"
 }
 
 repositories {
@@ -531,24 +534,30 @@ repositories {
 
 val skikoVersion = "0.8.18"
 
-// 3. Dynamically detect the host OS
+// 4. Dynamically detect the host OS
 val osName = System.getProperty("os.name")
-val targetOs = when {
-    osName == "Mac OS X" -> "macos"
-    osName.startsWith("Win") -> "windows"
-    osName.startsWith("Linux") -> "linux"
-    else -> error("Unsupported OS: $osName")
-}
+val targetOs =
+    when {
+        osName == "Mac OS X" -> "macos"
+        osName.startsWith("Win") -> "windows"
+        osName.startsWith("Linux") -> "linux"
+        else -> error("Unsupported OS: $osName")
+    }
 
-// 4. Dynamically detect the host CPU architecture
+// 5. Dynamically detect the host CPU architecture
 val osArch = System.getProperty("os.arch")
-val targetArch = when (osArch) {
-    "x86_64", "amd64" -> "x64"
-    "aarch64" -> "arm64"
-    else -> error("Unsupported architecture: $osArch")
-}
+val targetArch =
+    when (osArch) {
+        "x86_64", "amd64" -> "x64"
+        "aarch64" -> "arm64"
+        else -> error("Unsupported architecture: $osArch")
+    }
 
 val skikoTarget = "$targetOs-$targetArch"
+
+kotlin {
+    jvmToolchain(21)
+}
 
 dependencies {
     // Core Skiko AWT bindings
@@ -561,6 +570,16 @@ dependencies {
 application {
     // Defines the entry point when running `./gradlew run`
     mainClass.set("MainKt")
+}
+
+ktlint {
+    version.set("1.5.0")
+    android.set(false)
+    outputToConsole.set(true)
+    reporters {
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.HTML)
+    }
 }</code></pre>
       </div>
     </section>
@@ -758,9 +777,64 @@ fun main() {
       </div>
     </section>
 
-    <!-- SECTION 9: ADVANCED SKIA DRAWING CAPABILITIES -->
+    <!-- SECTION 9: CODE FORMATTING & LINTING (KTLINT) -->
+    <section id="ktlint">
+      <h2><span class="section-num">9</span> Code Formatting & Linting with Ktlint</h2>
+      <p>
+        When working outside of IntelliJ (such as in VS Code, Neovim, Helix, or standard terminal editors), you don't have IntelliJ's automatic <code>Cmd+Option+L</code> formatter running in the background. In the Kotlin ecosystem, <strong>ktlint</strong> is the industry-standard linter and formatter that adheres strictly to the official Kotlin coding conventions.
+      </p>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Why Ktlint?</div>
+        Ktlint operates on an <em>anti-bikeshedding</em> philosophy: it enforces official language rules with zero arguments over tabs vs spaces or brace styles, ensuring a consistent codebase across team members and CI pipelines.
+      </div>
+
+      <h3>1. Automated In-Place Formatting</h3>
+      <p>Run the formatting task to automatically fix indentation, spacing, multiline expressions, import order, and trailing commas across all <code>.kt</code> and <code>.gradle.kts</code> files:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash">./gradlew ktlintFormat</code></pre>
+      </div>
+
+      <h3>2. Verifying Code Style (Linting)</h3>
+      <p>Run the check task to scan your project for style violations without modifying any files (ideal for CI/CD checks):</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash">./gradlew ktlintCheck</code></pre>
+      </div>
+
+      <p>When violations are found, ktlint prints the exact file, line number, and rule violation to the console, and generates detailed HTML and plain-text reports in <code>build/reports/ktlint/</code>.</p>
+
+      <h3>3. Optional: Standalone CLI & Pre-commit Hooks</h3>
+      <p>You can also install ktlint directly on macOS via Homebrew to format files without running Gradle:</p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal (Homebrew CLI)</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Install standalone ktlint CLI
+brew install ktlint
+
+# Format a file directly
+ktlint -F "src/**/*.kt"
+
+# Automatically install a Git pre-commit hook that prevents committing unformatted code
+ktlint installGitPreCommitHook</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 10: ADVANCED SKIA DRAWING CAPABILITIES -->
     <section id="advanced-skia">
-      <h2><span class="section-num">9</span> Essential Skia API Quick Reference</h2>
+      <h2><span class="section-num">10</span> Essential Skia API Quick Reference</h2>
       <p>Here are common Skia drawing techniques you can plug into your <code>onRender</code> loop:</p>
 
       <h3>1. Linear Gradient Shaders</h3>
@@ -811,9 +885,9 @@ canvas.drawPath(path, strokePaint)</code></pre>
       </div>
     </section>
 
-    <!-- SECTION 10: TROUBLESHOOTING & PITFALLS -->
+    <!-- SECTION 11: TROUBLESHOOTING & PITFALLS -->
     <section id="troubleshooting">
-      <h2><span class="section-num">10</span> Common Command-Line Pitfalls</h2>
+      <h2><span class="section-num">11</span> Common Command-Line Pitfalls</h2>
 
       <div class="callout warning">
         <div class="callout-title">⚠️ Pitfall 1: "Unable to locate a Java Runtime" on macOS</div>
