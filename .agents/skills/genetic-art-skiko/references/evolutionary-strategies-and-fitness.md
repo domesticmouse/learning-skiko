@@ -13,23 +13,26 @@ In image reconstruction, shape #15 might be a dark pupil in Parent A, but a high
 
 ---
 
-## 2. Fitness Metrics
+### 2. Fitness Metrics
 
-### L1 Manhattan Distance (Absolute Difference)
-The highest-throughput metric for real-time CPU evaluation:
-$$\text{L1} = \sum_{x,y} \left( |R_t - R_c| + |G_t - G_c| + |B_t - B_c| \right)$$
-
-* **Pros**: Uses simple subtraction and `Math.abs`, eliminating multiplication instructions and avoiding integer overflow risks on large canvases. Achieves maximum evaluations/second.
-* **Sensitivity**: Linear penalty curve; converges smoothly across both broad color blocks and fine edge strokes.
-* **Kotlin Signed Byte Masking**: In Kotlin/Java, `Byte` is signed ($-128 \dots 127$). Always convert with `and 0xFF` before subtracting:
-  `Math.abs((candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF))`
-
-### Sum of Squared Differences (SSD / MSE)
-The standard quadratic metric for image approximation:
+### L2 Sum of Squared Differences (SSD) — Primary Metric
+The standard quadratic metric used across `Evaluator.kt` and the curriculum:
 $$\text{SSD} = \sum_{x,y} \left( (R_t - R_c)^2 + (G_t - G_c)^2 + (B_t - B_c)^2 \right)$$
 
-* **Pros**: Inexpensive on modern CPUs; modern JVMs vectorize simple arithmetic loops.
-* **Sensitivity**: Penalizes large color mismatches heavily, ensuring large background blocks establish before fine lines. Risk of integer overflow if accumulating large image dimensions without `Long`.
+* **Pros**: Modern JVMs auto-vectorize simple integer squaring loops. Squaring heavily penalizes large color mismatches ($2\times$ error $\to 4\times$ penalty), ensuring major background blocks and contrast edges establish rapidly before micro-refinement.
+* **64-Bit Accumulation**: Always accumulate into a `Long` (`var sumSquaredDiff = 0L`) because a $256 \times 256$ canvas has a maximum SSD of $65,536 \times 3 \times 255^2 \approx 1.27 \times 10^{10}$, which overflows a 32-bit signed `Int`.
+* **Kotlin Signed Byte Masking & Stride**: `allocN32Pixels` uses 4-byte `BGRA_8888` layout (`i += 4`). Because Kotlin `Byte` is signed ($-128 \dots 127$), always mask with `and 0xFF` before subtracting:
+  ```kotlin
+  val db = (candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF)
+  val dg = (candidateBytes[i + 1].toInt() and 0xFF) - (targetBytes[i + 1].toInt() and 0xFF)
+  val dr = (candidateBytes[i + 2].toInt() and 0xFF) - (targetBytes[i + 2].toInt() and 0xFF)
+  sumSquaredDiff += (db * db + dg * dg + dr * dr)
+  ```
+
+### L1 Manhattan Distance (Alternative Linear Metric)
+$$\text{L1} = \sum_{x,y} \left( |R_t - R_c| + |G_t - G_c| + |B_t - B_c| \right)$$
+
+* **Trade-off**: Penalizes all deviations linearly; less aggressive on high-contrast outliers than L2 SSD.
 
 ### Subsampling for Ultra-High Speed
 To accelerate early generations or large images ($512\times 512$+):
@@ -40,11 +43,10 @@ To accelerate early generations or large images ($512\times 512$+):
 
 ## 3. Advanced Mutation Operators
 
-1. **Simulated Annealing / Adaptive Mutation**:
-   - Start with large stroke adjustments ($\pm 30$px, $\pm 50$ RGB) in early generations ($< 10,000$).
-   - Decay mutation step size as generations advance to refine subtle brush strokes.
-2. **Stroke Pruning**:
-   - Periodically remove a stroke. If error does not increase significantly, keep the pruned genome. This creates cleaner, minimalist paintings.
+1. **Step-Size Annealing + Rechenberg's 1/5th Rule**:
+   - Combine exponential cooling $\sigma_{\text{base}}(t) = \sigma_{\min} + (\sigma_0 - \sigma_{\min}) \exp(-t/\tau)$ with a rolling `adaptiveGain` multiplier updated every 500–1,000 evaluations (`currentSigma = (baseSigma * adaptiveGain).coerceIn(minSigma, initialSigma)`).
+2. **Variable-Length Structural Mutations (Add / Remove Stroke)**:
+   - Periodically insert or delete a stroke so parsimony regularization can prune redundant strokes.
 3. **Layer Ordering (Z-Index Mutation)**:
    - Swapping stroke indices in the list changes which stroke is rendered on top.
 
@@ -54,10 +56,9 @@ To accelerate early generations or large images ($512\times 512$+):
 
 When scaling evolution across multiple CPU cores, sharing a single mutable champion creates cache thrashing and lock contention. Instead, use an **Island Model**:
 
-1. **Topology**: Spawn $K$ worker threads (typically $K = \text{availableProcessors} - 1$). Each thread owns an independent $(1+1)$ or $(1+\lambda)$ evolutionary engine and private `Evaluator` instance.
-2. **Ring Migration**: Every $M$ generations (e.g., $M = 1,000$), each island sends its champion to its neighbor ($i \to (i+1) \pmod K$) via a thread-safe ring buffer or `ConcurrentLinkedQueue`.
-3. **Immigration Acceptance**: An island evaluates the incoming immigrant. If the immigrant outperforms the island's current champion, it becomes the new local champion.
-4. **Benefit**: Different islands explore distinct regions of the fitness landscape (different stroke configurations and color blendings). Migration allows one island to break through another's local plateau.
+1. **Topology**: Spawn $K$ worker threads. Each thread owns an independent $(1+1)$ evolutionary loop and a private `Evaluator` instance (since Skia's `Bitmap`, `Canvas`, `Paint`, and `Path` wrap mutable native pointers and are not thread-safe).
+2. **Ring Migration**: Every $M$ generations (e.g., $M = 2,000$), each island deposits its `localBest` into `migrationInboxes[(id + 1) % numIslands]`.
+3. **Immigration Acceptance & Global Champion**: Because `Painting` caches its `error: Long`, compare `migrant.error < localBest.error` directly without re-rasterizing, and update `globalChampion` lock-free via `accumulateAndGet`.
 
 ---
 
@@ -66,23 +67,22 @@ When scaling evolution across multiple CPU cores, sharing a single mutable champ
 ### CIELAB $\Delta E$ Perceptual Distance
 Euclidean distance in sRGB does not match human perception (the human eye is significantly more sensitive to green variations than blue, and non-linearly sensitive to luminance).
 $$\Delta E_{76} = \sqrt{(L^*_1 - L^*_2)^2 + (a^*_1 - a^*_2)^2 + (b^*_1 - b^*_2)^2}$$
-* **Implementation Tip**: Precompute an sRGB $\to$ Lab LUT (lookup table) or integer approximation to preserve zero-allocation high-speed evaluation in the inner loop.
+* **3D LUT Indexing**: Precompute a 5-bit quantized $32 \times 32 \times 32$ lookup table (`FloatArray(32 * 32 * 32 * 3)`). Multiply the packed 15-bit index by `3` to stride over `[L*, a*, b*]`:
+  `val baseIdx = (((r ushr 3 and 0x1F) shl 10) or ((g ushr 3 and 0x1F) shl 5) or (b ushr 3 and 0x1F)) * 3`
 
 ### Sobel Edge-Weighted Evaluation
-To prevent the algorithm from over-allocating strokes to flat backgrounds while blurring facial features or contours, compute a 2D edge salience mask using a Sobel operator ($G = \sqrt{G_x^2 + G_y^2}$):
-$$\text{Fitness} = \sum_{x,y} \left( 1.0 + w_{\text{edge}} \cdot S(x, y) \right) \cdot \text{Error}(x, y)$$
-where $S(x, y) \in [0, 1]$ is the normalized edge gradient magnitude, and $w_{\text{edge}}$ is a weighting factor (e.g. $1.5 \dots 3.0$).
+To prevent the algorithm from over-allocating strokes to flat backgrounds while blurring facial features or contours, compute a 2D edge salience mask using a $3\times 3$ Sobel operator ($G = \sqrt{G_x^2 + G_y^2}$):
+$$\text{Fitness} = \sum_{x,y} \left( 1.0 + \gamma \cdot G(x, y) \right) \cdot \Delta E(x, y)$$
 
 ---
 
 ## 6. Parsimony Pressure & Style Constraints
 
-Standard error metrics incentivize the algorithm to add the maximum allowed number of strokes to shave off tiny pixel errors, resulting in high-density noise.
+Standard error metrics incentivize the algorithm to use every available stroke to shave off tiny pixel errors, resulting in high-density micro-clutter.
 
 To encourage minimalist or painterly aesthetics, use **Parsimony Regularization**:
-$$\text{TotalFitness} = \text{PixelError} + \alpha \cdot N_{\text{strokes}} + \beta \cdot \text{TotalArea}$$
-* $\alpha$: Stroke count penalty coefficient. Allows dynamic insertion and deletion of strokes, finding the optimal balance between detail and simplicity.
-* $\beta$: Area penalty to encourage broad watercolor glazes or delicate pointillist marks.
+$$\text{TotalFitness} = \text{PixelSSD} + \alpha \cdot N_{\text{strokes}} + \beta \cdot \text{TotalArea}$$
+* **Variable-Length Requirement**: $\alpha \cdot N_{\text{strokes}}$ only exerts selection pressure when `Painting.mutate()` includes structural **Add Stroke** and **Remove Stroke** branches; with a fixed stroke count, the penalty is a constant offset that cancels out between parent and child.
 
 ---
 
@@ -91,12 +91,12 @@ $$\text{TotalFitness} = \text{PixelError} + \alpha \cdot N_{\text{strokes}} + \b
 ### Primitives Mapping
 | Primitive | Geometric Degrees of Freedom | Skia Path Command | W3C SVG Equivalent |
 | :--- | :--- | :--- | :--- |
-| **Quadratic Bézier** | 8: $(x_0, y_0), (x_c, y_c), (x_1, y_1), w, \text{ARGB}$ | `path.quadTo(xc, yc, x1, y1)` | `<path d="M x0,y0 Q xc,yc x1,y1" stroke="..." stroke-width="w"/>` |
-| **Cubic Bézier** | 10: $(x_0, y_0), (x_{c1}, y_{c1}), (x_{c2}, y_{c2}), (x_1, y_1), w, \text{ARGB}$ | `path.cubicTo(xc1, yc1, xc2, yc2, x1, y1)` | `<path d="M x0,y0 C xc1,yc1 xc2,yc2 x1,y1" .../>` |
-| **Convex Polygon** | $2N + 4$: $N$ vertices $(x_i, y_i) + \text{ARGB}$ | `path.lineTo(...)` + `path.closePath()` | `<polygon points="x0,y0 x1,y1 ..." fill="..."/>` |
+| **Quadratic Bézier** | 11: $(x_0, y_0), (x_c, y_c), (x_1, y_1), w, r, g, b, a$ | `path.quadTo(xc, yc, x1, y1)` | `<path d="M x0,y0 Q xc,yc x1,y1" stroke="rgb(r,g,b)" stroke-opacity="a" stroke-width="w"/>` |
+| **Cubic Bézier** | 10: $(x_0, y_0), (x_{c1}, y_{c1}), (x_{c2}, y_{c2}), (x_3, y_3), w, \text{ARGB}$ | `path.cubicTo(cx1, cy1, cx2, cy2, x3, y3)` | `<path d="M x0,y0 C cx1,cy1 cx2,cy2 x3,y3" .../>` |
+| **Convex Polygon** | Polar $(\theta_i, r_i)$ sorted by $\theta_i$ around $(c_x, c_y)$ + $\text{ARGB}$ | `path.lineTo(...)` + `path.closePath()` | `<polygon points="x0,y0 x1,y1 ..." fill="..."/>` |
 
 ### Deterministic Checkpointing & CLI Time-Lapse Assembly
-1. **Chromosome Checkpoint Format**: Serialize `Painting` to `.gene` (JSON array of stroke primitives and parameters) to allow resume, branching, and headless rendering at $4\text{K}$ resolution.
+1. **Chromosome Checkpoint Format (`.gene`)**: Serialize `Painting` to a line-oriented `.gene` file (`# GENETIC_ART_V1 error=<Long> strokes=<Int>` followed by `x0,y0,xc,yc,x1,y1,strokeWidth,r,g,b,a` per line) to allow pause/resume and headless rendering at $4\text{K}$ resolution.
 2. **FFmpeg CLI Video Encoding**:
    ```bash
    ffmpeg -framerate 60 -i frame_%05d.png \

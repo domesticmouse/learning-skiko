@@ -161,24 +161,24 @@
 
     <!-- SECTION 2: L1 VS L2 -->
     <section id="l1-distance">
-      <h2><span class="section-num">2</span> L1 Manhattan vs. L2 Euclidean Distance</h2>
+      <h2><span class="section-num">2</span> L1 Manhattan vs. L2 Sum of Squared Differences (SSD)</h2>
       <p>
-        When comparing two RGB color vectors \((R_1, G_1, B_1)\) and \((R_2, G_2, B_2)\), there are two common metrics:
+        When comparing two RGB color vectors \((R_1, G_1, B_1)\) and \((R_2, G_2, B_2)\), there are two classical distance metrics:
       </p>
       <div class="card-grid">
         <div class="card">
           <h4>📐 L1 Distance (Manhattan)</h4>
-          <p>\[ \Delta = |R_1 - R_2| + |G_1 - G_2| + |B_1 - B_2| \]</p>
-          <p><strong>Pros:</strong> Extremely fast on the CPU, requires no squaring or square root, uses simple subtraction and bitwise masks.</p>
+          <p>\[ \Delta_{L1} = |R_1 - R_2| + |G_1 - G_2| + |B_1 - B_2| \]</p>
+          <p><strong>Characteristics:</strong> Treats all errors linearly—one pixel off by 60 counts the same as ten pixels off by 6. Can leave harsh, high-contrast color artifacts unpunished.</p>
         </div>
         <div class="card">
-          <h4>📏 L2 Distance (Euclidean / MSE)</h4>
-          <p>\[ \Delta = (R_1 - R_2)^2 + (G_1 - G_2)^2 + (B_1 - B_2)^2 \]</p>
-          <p><strong>Pros:</strong> Penalizes large individual pixel discrepancies more heavily, but requires multiplication and risks integer overflow on large images.</p>
+          <h4>📏 L2 Squared Distance (SSD)</h4>
+          <p>\[ \Delta_{L2}^2 = (R_1 - R_2)^2 + (G_1 - G_2)^2 + (B_1 - B_2)^2 \]</p>
+          <p><strong>Characteristics:</strong> Penalizes large individual pixel discrepancies quadratically (\(60^2 = 3600\) vs \(10 \times 6^2 = 360\)) and avoids slow <code>sqrt()</code> calls by summing squared differences directly into a 64-bit <code>Long</code>.</p>
         </div>
       </div>
       <p>
-        For our painter engine running thousands of evaluations per second, <strong>L1 Manhattan distance</strong> is the superior choice, delivering exceptional visual convergence with minimal CPU cycles.
+        In our painter engine (<a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Evaluator.kt"><code>Evaluator.kt</code></a>), we use <strong>L2 Sum of Squared Differences (SSD)</strong>: integer multiplication (<code>d * d</code>) is single-cycle on modern CPUs, branchless (unlike <code>Math.abs</code>), and strongly pressures the algorithm to eliminate glaring color mismatches first.
       </p>
     </section>
 
@@ -230,14 +230,14 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
     val targetBytes: ByteArray,
     val backgroundColor: Int = Color.WHITE,
 ) {
-    // Reusable offscreen buffers — allocated ONCE!
+    // Reusable offscreen buffers — allocated ONCE per Evaluator!
     private val bitmap = Bitmap().apply { allocN32Pixels(width, height) }
     private val canvas = Canvas(bitmap)
     private val paint = Paint()
     private val path = Path()
 
     fun evaluate(painting: Painting): Long {
-        // 1. Render candidate painting offscreen
+        // 1. Render painting onto offscreen canvas
         painting.render(
             canvas = canvas,
             width = width.toFloat(),
@@ -250,21 +250,25 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
         // 2. Read pixel buffer
         val candidateBytes = bitmap.readPixels(bitmap.imageInfo) ?: return Long.MAX_VALUE
 
-        // 3. High-speed L1 Manhattan distance across bytes
-        var diff = 0L
-        val totalBytes = width * height * 4
+        // 3. Compute Sum of Squared Differences (L2 SSD)
+        var totalError = 0L
+        val len = candidateBytes.size
         var i = 0
-        while (i < totalBytes) {
-            val bDiff = Math.abs((candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF))
-            val gDiff = Math.abs((candidateBytes[i + 1].toInt() and 0xFF) - (targetBytes[i + 1].toInt() and 0xFF))
-            val rDiff = Math.abs((candidateBytes[i + 2].toInt() and 0xFF) - (targetBytes[i + 2].toInt() and 0xFF))
-
-            diff += (bDiff + gDiff + rDiff)
-            i += 4 // Skip alpha channel since background is opaque
+        while (i < len) {
+            val d0 = (candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF)
+            val d1 = (candidateBytes[i + 1].toInt() and 0xFF) - (targetBytes[i + 1].toInt() and 0xFF)
+            val d2 = (candidateBytes[i + 2].toInt() and 0xFF) - (targetBytes[i + 2].toInt() and 0xFF)
+            totalError += (d0 * d0) + (d1 * d1) + (d2 * d2)
+            i += 4 // Step 4 bytes per pixel (skip alpha byte i+3)
         }
-        return diff
+
+        return totalError
     }
 }</code></pre>
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">💡 Memory Layout: Why Step by 4 Bytes (<code>i += 4</code>)?</div>
+        <code>allocN32Pixels</code> allocates 32-bit pixels in native <code>BGRA_8888</code> byte order on little-endian CPUs (4 bytes per pixel: Blue at <code>i</code>, Green at <code>i+1</code>, Red at <code>i+2</code>, Alpha at <code>i+3</code>). Because <code>Painting.render()</code> starts with an opaque base coat (<code>Color.WHITE</code>), every composited pixel has <code>Alpha == 255</code>, so we only need to compare the first three color bytes of each 4-byte stride.
       </div>
       <div class="callout warning">
         <div class="callout-title">⚠️ Kotlin Byte Signedness Gotcha</div>
@@ -274,27 +278,27 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
 
     <!-- SECTION 5: PIXEL DEMO -->
     <section id="pixel-demo">
-      <h2><span class="section-num">5</span> Interactive Pixel Difference Calculator</h2>
+      <h2><span class="section-num">5</span> Interactive Pixel SSD Calculator</h2>
       <p>
-        Compare how two sample pixels are evaluated under the L1 distance formula:
+        Click either color swatch below to pick different Target and Candidate colors and watch how the per-channel L2 squared error (\(\Delta R^2 + \Delta G^2 + \Delta B^2\)) responds to small nudges vs. large color outliers:
       </p>
       <div class="pixel-inspector">
         <div class="pixel-box">
           <strong>Target Pixel</strong>
-          <div class="swatch" style="background-color: #3b82f6;"></div>
-          <div class="pixel-channels">RGB: (59, 130, 246)</div>
+          <input type="color" id="targetColorPicker" value="#3b82f6" class="swatch" style="cursor: pointer; padding: 0; background: none;">
+          <div class="pixel-channels" id="targetRgbText">RGB: (59, 130, 246)</div>
         </div>
         <div class="pixel-box">
           <strong>Candidate Pixel</strong>
-          <div class="swatch" style="background-color: #8b5cf6;"></div>
-          <div class="pixel-channels">RGB: (139, 92, 246)</div>
+          <input type="color" id="candColorPicker" value="#8b5cf6" class="swatch" style="cursor: pointer; padding: 0; background: none;">
+          <div class="pixel-channels" id="candRgbText">RGB: (139, 92, 246)</div>
         </div>
         <div class="pixel-box">
-          <strong>L1 Error Score</strong>
-          <div class="swatch" style="background-color: #1e2132; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--highlight); font-size: 1.3rem;">
-            118
+          <strong>L2 Squared Error (SSD)</strong>
+          <div id="ssdScoreBox" class="swatch" style="width: auto; min-width: 110px; padding: 0 0.75rem; background-color: #1e2132; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--highlight); font-size: 1.2rem;">
+            7,844
           </div>
-          <div class="pixel-channels">|59-139| + |130-92| + |246-246| = 80 + 38 + 0</div>
+          <div class="pixel-channels" id="ssdFormulaText">(59-139)² + (130-92)² + (246-246)² = 6400 + 1444 + 0</div>
         </div>
       </div>
     </section>
@@ -338,7 +342,7 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
 
       <div class="callout">
         <div class="callout-title">💬 Have Questions? Ask Your Agent Teacher!</div>
-        <p>Curious about how much faster L1 distance runs compared to squared Euclidean distance? We can run a quick benchmark directly through Gradle in your terminal!</p>
+        <p>Curious about how L2 Sum of Squared Differences behaves compared to perceptual color spaces? We can benchmark and compare them directly through Gradle in your terminal!</p>
       </div>
 
       <div class="lesson-nav">
@@ -368,6 +372,36 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
         }, 2000);
       });
     }
+
+    function hexToRgb(hex) {
+      const num = parseInt(hex.slice(1), 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    }
+
+    const targetPicker = document.getElementById('targetColorPicker');
+    const candPicker = document.getElementById('candColorPicker');
+    const targetRgbText = document.getElementById('targetRgbText');
+    const candRgbText = document.getElementById('candRgbText');
+    const ssdScoreBox = document.getElementById('ssdScoreBox');
+    const ssdFormulaText = document.getElementById('ssdFormulaText');
+
+    function updatePixelCalc() {
+      const [r1, g1, b1] = hexToRgb(targetPicker.value);
+      const [r2, g2, b2] = hexToRgb(candPicker.value);
+      const dr2 = (r1 - r2) * (r1 - r2);
+      const dg2 = (g1 - g2) * (g1 - g2);
+      const db2 = (b1 - b2) * (b1 - b2);
+      const total = dr2 + dg2 + db2;
+
+      targetRgbText.textContent = `RGB: (${r1}, ${g1}, ${b1})`;
+      candRgbText.textContent = `RGB: (${r2}, ${g2}, ${b2})`;
+      ssdScoreBox.textContent = total.toLocaleString();
+      ssdFormulaText.textContent = `(${r1}-${r2})² + (${g1}-${g2})² + (${b1}-${b2})² = ${dr2} + ${dg2} + ${db2}`;
+    }
+
+    targetPicker.addEventListener('input', updatePixelCalc);
+    candPicker.addEventListener('input', updatePixelCalc);
+    updatePixelCalc();
   </script>
 </body>
 </html>

@@ -272,6 +272,11 @@ canvas.drawString("%,d evals/s".format(evalsSec), col4, hudY + 54f, headerFont, 
           <p>Encodes the current champion painting to a high-resolution lossless PNG file in the workspace directory.</p>
         </div>
       </div>
+
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Thread-Confinement Rule for Skia Bitmaps</div>
+        <p>Notice that in <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>Main.kt</code></a>, the UI render delegate allocates its own <code>displayBitmap</code> and <code>displayCanvas</code> (and key <code>[S]</code> allocates a dedicated <code>saveBitmap</code>) rather than sharing the worker thread's <code>Evaluator</code> buffers. Because Skia's <code>Bitmap</code>, <code>Canvas</code>, <code>Paint</code>, and <code>Path</code> are stateful and not thread-safe, <strong>every thread must own its own isolated rendering buffers</strong>—a critical rule we will rely on when scaling to multi-core worker pools in Lesson 6.</p>
+      </div>
     </section>
 
     <!-- SECTION 4: PNG EXPORT -->
@@ -342,23 +347,23 @@ if (data != null) {
       <h2><span class="section-num">7</span> Course Summary & Future Horizons</h2>
       <div class="callout tip">
         <div class="callout-title">🎉 Phase 1 Foundations Mastered!</div>
-        <p>You have deconstructed and mastered the complete foundational stack for genetic art in Kotlin and Skiko:</p>
+        <p>You have deconstructed and mastered the complete foundational stack in <code>src/main/kotlin/</code>:</p>
         <ul>
-          <li><strong>Lesson 1:</strong> Scaffolding standalone Skiko apps from the CLI.</li>
-          <li><strong>Lesson 2:</strong> Modeling artistic chromosomes with Bézier curves.</li>
-          <li><strong>Lesson 3:</strong> High-throughput headless fitness evaluation.</li>
-          <li><strong>Lesson 4:</strong> Lock-free multi-threaded (1+1) Hill Climber.</li>
-          <li><strong>Lesson 5:</strong> In-canvas HUD rendering and interactive keyboard controls.</li>
+          <li><strong>Lesson 1:</strong> Scaffolding standalone Skiko apps from the CLI (<code>build.gradle.kts</code>, <code>Main.kt</code>).</li>
+          <li><strong>Lesson 2:</strong> Modeling artistic chromosomes with Bézier curves (<code>StrokeGene.kt</code>, <code>Painting.kt</code>).</li>
+          <li><strong>Lesson 3:</strong> High-throughput headless L2 SSD fitness evaluation (<code>Evaluator.kt</code>, <code>TargetImage.kt</code>).</li>
+          <li><strong>Lesson 4:</strong> Lock-free multi-threaded (1+1) Hill Climber (<code>GeneticPainter.kt</code>).</li>
+          <li><strong>Lesson 5:</strong> In-canvas HUD rendering, thread-confined buffers, and interactive controls (<code>Main.kt</code>).</li>
         </ul>
       </div>
 
       <div class="callout">
-        <div class="callout-title">🚀 Phase 2 Extension Horizons (Lessons 6–11)</div>
-        <p>The curriculum roadmap expands into three advanced capability tracks:</p>
+        <div class="callout-title">🚀 Entering Phase 2: Modular Extension Tracks (Lessons 6–11)</div>
+        <p>Whereas Phase 1 deconstructed the base engine currently in <code>src/main/kotlin/</code>, <strong>Phase 2 guides you through designing drop-in extension modules</strong> across three advanced capability tracks. All Phase 2 code snippets use the exact same <code>StrokeGene</code>, <code>Painting</code>, <code>Evaluator</code>, and <code>TargetImage</code> APIs from Phase 1 so you can drop any extension directly into <code>src/main/kotlin/</code>:</p>
         <ul>
           <li><strong>Track 1 (Algorithmic Scaling):</strong> Multi-core Island Model concurrency (Lesson 6) and adaptive annealing with multi-resolution pyramids (Lesson 7).</li>
-          <li><strong>Track 2 (Perceptual Aesthetics):</strong> CIELAB ΔE color distance & Sobel edge weighting (Lesson 8) and parsimony regularization pressure (Lesson 9).</li>
-          <li><strong>Track 3 (Rendering & Export):</strong> Diverse vector primitives & shaders (Lesson 10) and pure SVG vector serialization (Lesson 11).</li>
+          <li><strong>Track 2 (Perceptual Aesthetics):</strong> CIELAB \(\Delta E\) color distance &amp; Sobel edge weighting (Lesson 8) and parsimony regularization pressure (Lesson 9).</li>
+          <li><strong>Track 3 (Rendering &amp; Export):</strong> Diverse vector primitives &amp; shaders (Lesson 10) and pure SVG vector serialization + checkpointing (Lesson 11).</li>
         </ul>
       </div>
 

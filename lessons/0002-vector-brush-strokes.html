@@ -230,7 +230,12 @@ canvas.drawPath(path, paint)</code></pre>
           <span>src/main/kotlin/StrokeGene.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">package org.jetbrains.skia
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.PaintMode
+import org.jetbrains.skia.PaintStrokeCap
+import org.jetbrains.skia.Path
 
 data class StrokeGene(
     val x0: Float,
@@ -313,7 +318,7 @@ data class StrokeGene(
     <section id="interactive-sandbox">
       <h2><span class="section-num">5</span> Interactive Stroke Sandbox</h2>
       <p>
-        Experiment with Bézier control points, stroke width, and alpha blending below. Drag the blue control point to see how the stroke curves in real time:
+        Experiment with Bézier control points, stroke width, and alpha blending below. Drag <strong>any of the three handles</strong> (<code>P0</code>, <code>Control Pt</code>, or <code>P1</code>) to see how the quadratic spline responds in real time:
       </p>
       <div class="sandbox-container">
         <div class="sandbox-viewport">
@@ -342,41 +347,97 @@ data class StrokeGene(
     <section id="mutation-operators">
       <h2><span class="section-num">6</span> Stochastic Mutation Operators</h2>
       <p>
-        How do we create variation without destroying established structure? In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Painting.kt"><code>Painting.kt</code></a>, the <code>mutate()</code> method applies small probabilistic perturbations:
+        How do we create variation without destroying established structure? Mutation happens at two hierarchical levels: <strong>chromosome-level</strong> (<a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Painting.kt"><code>Painting.mutate()</code></a>) and <strong>gene-level</strong> (<a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/StrokeGene.kt"><code>StrokeGene.mutate()</code></a>).
+      </p>
+
+      <h3>1. Chromosome-Level Mutation (<code>Painting.kt</code>)</h3>
+      <p>
+        When producing a child candidate, <code>Painting.mutate()</code> rolls a random float in \([0, 1)\) to choose between fine-tuning existing strokes, reordering paint layers, or replacing a dead-end stroke:
       </p>
       <div class="code-container">
         <div class="code-header">
-          <span>Mutation Operators in Painting.kt</span>
+          <span>src/main/kotlin/Painting.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">fun mutate(width: Float, height: Float): Painting {
-    val newStrokes = strokes.toMutableList()
-    val roll = Random.nextFloat()
+        <pre><code class="language-kotlin">fun mutate(
+    width: Float,
+    height: Float,
+    rng: Random,
+): Painting {
+    if (strokes.isEmpty()) return this
 
+    val roll = rng.nextFloat()
+    val newStrokes = strokes.toMutableList()
     when {
-        // 75% chance: Mutate an existing stroke's parameters
-        roll < 0.75f -> {
-            val idx = Random.nextInt(newStrokes.size)
-            newStrokes[idx] = newStrokes[idx].mutate(width, height)
+        // 80% chance: Fine-tune 1 or 2 existing strokes
+        roll < 0.80f -> {
+            val count = if (rng.nextBoolean()) 1 else 2
+            repeat(count) {
+                val idx = rng.nextInt(newStrokes.size)
+                newStrokes[idx] = newStrokes[idx].mutate(width, height, rng)
+            }
         }
-        // 15% chance: Swap order of two strokes (layering change)
-        roll < 0.90f -> {
-            val i = Random.nextInt(newStrokes.size)
-            val j = Random.nextInt(newStrokes.size)
+        // 15% chance: Swap z-order of two strokes (layering change)
+        roll < 0.95f -> {
+            val i = rng.nextInt(newStrokes.size)
+            val j = rng.nextInt(newStrokes.size)
             Collections.swap(newStrokes, i, j)
         }
-        // 10% chance: Replace a stroke completely with random one
+        // 5% chance: Replace a stroke completely with a fresh random stroke
         else -> {
-            val idx = Random.nextInt(newStrokes.size)
-            newStrokes[idx] = StrokeGene.random(width, height)
+            val idx = rng.nextInt(newStrokes.size)
+            newStrokes[idx] = StrokeGene.random(width, height, rng)
         }
     }
-    return Painting(newStrokes)
+    return copy(strokes = newStrokes, error = Long.MAX_VALUE)
 }</code></pre>
       </div>
+
+      <h3>2. Gene-Level Perturbation &amp; Clamping (<code>StrokeGene.kt</code>)</h3>
+      <p>
+        Inside <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/StrokeGene.kt"><code>StrokeGene.mutate()</code></a>, we pick <strong>one</strong> of five attributes to nudge slightly, using Kotlin's <code>copy()</code> and <code>coerceIn()</code> so strokes never drift off-canvas or overflow 8-bit color channels:
+      </p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/main/kotlin/StrokeGene.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">fun mutate(width: Float, height: Float, rng: Random): StrokeGene {
+    return when (rng.nextInt(5)) {
+        0 -> { // Jitter control point (xc or yc by ±12px)
+            val delta = (rng.nextFloat() - 0.5f) * 24f
+            if (rng.nextBoolean()) copy(xc = (xc + delta).coerceIn(0f, width))
+            else copy(yc = (yc + delta).coerceIn(0f, height))
+        }
+        1 -> { // Jitter start or end point (±10px)
+            val dx = (rng.nextFloat() - 0.5f) * 20f
+            val dy = (rng.nextFloat() - 0.5f) * 20f
+            if (rng.nextBoolean()) copy(x0 = (x0 + dx).coerceIn(0f, width), y0 = (y0 + dy).coerceIn(0f, height))
+            else copy(x1 = (x1 + dx).coerceIn(0f, width), y1 = (y1 + dy).coerceIn(0f, height))
+        }
+        2 -> { // Nudge one RGB channel by -15..+15
+            val delta = rng.nextInt(31) - 15
+            when (rng.nextInt(3)) {
+                0 -> copy(r = (r + delta).coerceIn(0, 255))
+                1 -> copy(g = (g + delta).coerceIn(0, 255))
+                else -> copy(b = (b + delta).coerceIn(0, 255))
+            }
+        }
+        3 -> { // Nudge opacity (Alpha) within translucent bounds [20, 230]
+            val delta = rng.nextInt(21) - 10
+            copy(a = (a + delta).coerceIn(20, 230))
+        }
+        else -> { // Nudge stroke thickness within [2px, 35px]
+            val delta = (rng.nextFloat() - 0.5f) * 4f
+            copy(strokeWidth = (strokeWidth + delta).coerceIn(2f, 35f))
+        }
+    }
+}</code></pre>
+      </div>
+
       <div class="callout tip">
-        <div class="callout-title">💡 Why Keep Mutation Steps Small?</div>
-        If you mutate too aggressively (e.g., throwing strokes to completely random coordinates on every generation), the evolutionary algorithm behaves like random guessing, and the acceptance rate drops below 1%. Small, localized perturbations allow the hill climber to fine-tune subtle gradients and edge alignments.
+        <div class="callout-title">💡 Why Mutate One Attribute at a Time?</div>
+        If you mutated position, color, and thickness simultaneously on every step, a beneficial color tweak would frequently be rejected because it was paired with a destructive coordinate jump. Isolating mutations to 1–2 parameters per step lets the hill climber credit individual improvements cleanly.
       </div>
     </section>
 
@@ -449,7 +510,7 @@ data class StrokeGene(
     let p0 = { x: 70, y: 190 };
     let pc = { x: 240, y: 50 };
     let p1 = { x: 410, y: 190 };
-    let draggingControl = false;
+    let activeHandle = null;
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -483,14 +544,14 @@ data class StrokeGene(
       ctx.stroke();
 
       // Draw Handle Knobs
-      drawHandle(p0.x, p0.y, '#64748b', 'P0');
-      drawHandle(pc.x, pc.y, '#7c4dff', 'Control Pt', true);
-      drawHandle(p1.x, p1.y, '#64748b', 'P1');
+      drawHandle(p0.x, p0.y, '#0ea5e9', 'P0 (Start)');
+      drawHandle(pc.x, pc.y, '#7c4dff', 'Control Pt (Pc)', true);
+      drawHandle(p1.x, p1.y, '#0ea5e9', 'P1 (End)');
     }
 
     function drawHandle(x, y, color, label, isControl = false) {
       ctx.beginPath();
-      ctx.arc(x, y, isControl ? 9 : 6, 0, Math.PI * 2);
+      ctx.arc(x, y, isControl ? 9 : 7, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
@@ -499,30 +560,32 @@ data class StrokeGene(
 
       ctx.font = '11px -apple-system, sans-serif';
       ctx.fillStyle = '#475569';
-      ctx.fillText(label, x - 15, y - 12);
+      ctx.fillText(label, x - 22, y - 12);
     }
 
     canvas.addEventListener('mousedown', (e) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const dist = Math.hypot(mx - pc.x, my - pc.y);
-      if (dist < 20) {
-        draggingControl = true;
+      for (const pt of [pc, p0, p1]) {
+        if (Math.hypot(mx - pt.x, my - pt.y) < 20) {
+          activeHandle = pt;
+          break;
+        }
       }
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (draggingControl) {
+      if (activeHandle) {
         const rect = canvas.getBoundingClientRect();
-        pc.x = Math.max(20, Math.min(canvas.width - 20, e.clientX - rect.left));
-        pc.y = Math.max(20, Math.min(canvas.height - 20, e.clientY - rect.top));
+        activeHandle.x = Math.max(20, Math.min(canvas.width - 20, e.clientX - rect.left));
+        activeHandle.y = Math.max(20, Math.min(canvas.height - 20, e.clientY - rect.top));
         draw();
       }
     });
 
     window.addEventListener('mouseup', () => {
-      draggingControl = false;
+      activeHandle = null;
     });
 
     [widthSlider, alphaSlider, hueSlider].forEach(slider => {

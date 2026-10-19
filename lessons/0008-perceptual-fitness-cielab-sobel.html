@@ -322,11 +322,13 @@
           <span>PerceptualEvaluator.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
         </div>
-        <pre><code class="language-kotlin">class PerceptualEvaluator(val target: TargetImage, val edgeEmphasis: Float = 3.0f) {
+        <pre><code class="language-kotlin">import kotlin.math.sqrt
+
+class PerceptualEvaluator(val target: TargetImage, val edgeEmphasis: Float = 3.0f) {
     // Precomputed weight map from 3x3 Sobel convolution
     val edgeWeights = FloatArray(target.width * target.height)
 
-    // Precomputed RGB -> Lab packed lookup table (32x32x32 sampled)
+    // Precomputed RGB -> Lab packed lookup table (32x32x32 quantized grid * 3 channels)
     val labLut = FloatArray(32 * 32 * 32 * 3)
 
     init {
@@ -334,47 +336,78 @@
         precomputeLabLut()
     }
 
+    private fun luminanceAt(x: Int, y: Int): Float {
+        val idx = (y * target.width + x) * 4
+        val b = target.pixelBytes[idx].toInt() and 0xFF
+        val g = target.pixelBytes[idx + 1].toInt() and 0xFF
+        val r = target.pixelBytes[idx + 2].toInt() and 0xFF
+        return (0.2126f * r + 0.7152f * g + 0.0722f * b) / 255f
+    }
+
     private fun computeSobelWeights() {
         val w = target.width
         val h = target.height
-        val pixels = target.pixelBuffer
+        edgeWeights.fill(1.0f)
 
         for (y in 1 until h - 1) {
             for (x in 1 until w - 1) {
-                // Compute horizontal and vertical gradients
-                var gx = 0f
-                var gy = 0f
+                val gx = (-1f * luminanceAt(x - 1, y - 1)) + (1f * luminanceAt(x + 1, y - 1)) +
+                         (-2f * luminanceAt(x - 1, y))     + (2f * luminanceAt(x + 1, y)) +
+                         (-1f * luminanceAt(x - 1, y + 1)) + (1f * luminanceAt(x + 1, y + 1))
 
-                // Kernel convolution omitted for brevity...
-                val magnitude = kotlin.math.sqrt(gx * gx + gy * gy)
+                val gy = (-1f * luminanceAt(x - 1, y - 1)) + (-2f * luminanceAt(x, y - 1)) + (-1f * luminanceAt(x + 1, y - 1)) +
+                         ( 1f * luminanceAt(x - 1, y + 1)) + ( 2f * luminanceAt(x, y + 1)) + ( 1f * luminanceAt(x + 1, y + 1))
+
+                val magnitude = sqrt(gx * gx + gy * gy)
                 edgeWeights[y * w + x] = 1.0f + edgeEmphasis * magnitude
             }
         }
     }
 
-    fun evaluatePerceptual(candidateBuffer: IntArray): Double {
+    fun evaluatePerceptual(candidateBytes: ByteArray): Double {
         var totalError = 0.0
-        val size = target.width * target.height
+        val pixelCount = target.width * target.height
+        val targetBytes = target.pixelBytes
 
-        for (i in 0 until size) {
-            val c1 = candidateBuffer[i]
-            val c2 = target.pixelBuffer[i]
+        for (p in 0 until pixelCount) {
+            val i = p * 4 // BGRA_8888 stride
+            val idx1 = lutBaseIndex(
+                r = candidateBytes[i + 2].toInt() and 0xFF,
+                g = candidateBytes[i + 1].toInt() and 0xFF,
+                b = candidateBytes[i].toInt() and 0xFF
+            )
+            val idx2 = lutBaseIndex(
+                r = targetBytes[i + 2].toInt() and 0xFF,
+                g = targetBytes[i + 1].toInt() and 0xFF,
+                b = targetBytes[i].toInt() and 0xFF
+            )
 
-            // Fast lookup in precomputed Lab table
-            val dL = getL(c1) - getL(c2)
-            val da = getA(c1) - getA(c2)
-            val db = getB(c1) - getB(c2)
-            val deltaE = kotlin.math.sqrt(dL * dL + da * da + db * db)
+            // Fast O(1) lookup in precomputed Lab table (3 floats per entry: L*, a*, b*)
+            val dL = labLut[idx1] - labLut[idx2]
+            val da = labLut[idx1 + 1] - labLut[idx2 + 1]
+            val db = labLut[idx1 + 2] - labLut[idx2 + 2]
+            val deltaE = sqrt(dL * dL + da * da + db * db)
 
-            // Weight error by structural edge saliency
-            totalError += deltaE * edgeWeights[i]
+            // Weight perceptual error by structural edge saliency
+            totalError += deltaE * edgeWeights[p]
         }
         return totalError
     }
 
-    private fun getL(argb: Int): Float = labLut[(((argb shr 19) and 0x1F) shl 10) or (((argb shr 11) and 0x1F) shl 5) or ((argb shr 3) and 0x1F)]
-    private fun getA(argb: Int): Float = labLut[((((argb shr 19) and 0x1F) shl 10) or (((argb shr 11) and 0x1F) shl 5) or ((argb shr 3) and 0x1F)) + 1]
-    private fun getB(argb: Int): Float = labLut[((((argb shr 19) and 0x1F) shl 10) or (((argb shr 11) and 0x1F) shl 5) or ((argb shr 3) and 0x1F)) + 2]
+    /**
+     * Quantizes 8-bit R, G, B (0..255) into 5-bit indices (0..31) by shifting right 3 bits,
+     * packs them into a 15-bit cube index (0..32767), and multiplies by 3 for [L*, a*, b*] stride.
+     */
+    private fun lutBaseIndex(r: Int, g: Int, b: Int): Int {
+        val r5 = (r ushr 3) and 0x1F
+        val g5 = (g ushr 3) and 0x1F
+        val b5 = (b ushr 3) and 0x1F
+        return ((r5 shl 10) or (g5 shl 5) or b5) * 3
+    }
+
+    private fun precomputeLabLut() {
+        // Populates labLut[base + 0..2] with CIE L*, a*, b* for each 5-bit RGB lattice point
+    }
 }</code></pre>
       </div>
     </section>
@@ -531,12 +564,17 @@
         }
         tCtx.putImageData(imgData, 0, 0);
       } else if (mode === 'heatmap') {
-        caption.textContent = 'Perceptual Residual Error Heatmap';
+        caption.textContent = 'Perceptual Residual Error Heatmap (|Target − Evolved|)';
+        const evolvedData = eCtx.getImageData(0, 0, 220, 220).data;
         for (let i = 0; i < data.length; i += 4) {
-          const diff = Math.abs(data[i] - 120);
-          data[i] = diff * 2;
-          data[i+1] = 0;
-          data[i+2] = 255 - diff;
+          const dr = data[i] - evolvedData[i];
+          const dg = data[i+1] - evolvedData[i+1];
+          const db = data[i+2] - evolvedData[i+2];
+          const deltaE = Math.min(255, Math.sqrt(0.2126 * dr * dr + 0.7152 * dg * dg + 0.0722 * db * db) * 1.6);
+          // Cold dark blue for 0 error, hot magenta/orange for high residual error
+          data[i] = Math.min(255, deltaE * 1.4);
+          data[i+1] = Math.max(0, (deltaE - 120) * 1.5);
+          data[i+2] = Math.max(30, 140 - deltaE * 0.5);
         }
         tCtx.putImageData(imgData, 0, 0);
       } else {

@@ -309,37 +309,75 @@
 
     <!-- SECTION 6: KOTLIN REGULARIZER -->
     <section id="kotlin-regularizer">
-      <h2><span class="section-num">6</span> Regularized Evaluator in Kotlin</h2>
+      <h2><span class="section-num">6</span> Variable-Length Genomes & Regularized Evaluator in Kotlin</h2>
       <p>
         Incorporate parsimony pressure directly into your Kotlin fitness evaluation routine:
       </p>
+
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Crucial Requirement: Variable-Length Structural Mutations</div>
+        <p style="margin-bottom: 0;">
+          In Phase 1, <code>Painting.mutate()</code> kept <code>strokes.size</code> fixed (e.g., 150 strokes). If <code>strokes.size</code> never changes, then \(\alpha \cdot N_{\text{strokes}}\) is an identical constant on both parent and child, so it cancels out during comparison! For parsimony pressure to prune redundant strokes, we must add <strong>structural insertion and deletion branches</strong> so the genome length can grow and shrink dynamically.
+        </p>
+      </div>
 
       <div class="code-container">
         <div class="code-header">
           <span>RegularizedEvaluator.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
         </div>
-        <pre><code class="language-kotlin">class RegularizedEvaluator(
-    val target: TargetImage,
+        <pre><code class="language-kotlin">import kotlin.random.Random
+
+class RegularizedEvaluator(
     val baseEvaluator: Evaluator,
-    val parsimonyAlpha: Double = 250.0,
+    val parsimonyAlpha: Double = 25_000.0,
     val maxStrokeBudget: Int = 100
 ) {
     fun evaluate(painting: Painting): Double {
         val strokeCount = painting.strokes.size
 
         // Hard constraint: disqualify chromosomes exceeding stroke limit
-        if (strokeCount > maxStrokeBudget) {
+        if (strokeCount &gt; maxStrokeBudget) {
             return Double.MAX_VALUE
         }
 
-        // Base pixel difference
-        val pixelSSD = baseEvaluator.evaluate(painting)
+        // Base L2 Sum of Squared Differences (SSD)
+        val pixelSSD = baseEvaluator.evaluate(painting).toDouble()
 
-        // Linear parsimony penalty per stroke
+        // Linear parsimony penalty per stroke: every stroke must "pay rent" in error reduction
         val penalty = strokeCount * parsimonyAlpha
 
         return pixelSSD + penalty
+    }
+}
+
+/**
+ * Extends Painting mutation with variable-length structural operators (Add / Remove stroke)
+ * so parsimony pressure can actively prune strokes that do not reduce SSD by at least α.
+ */
+fun Painting.mutateVariableLength(
+    width: Float,
+    height: Float,
+    maxStrokes: Int = 100,
+    rng: Random = Random.Default
+): Painting {
+    val roll = rng.nextFloat()
+    return when {
+        // 10% chance: Delete a stroke (if it was contributing less than α, child wins!)
+        roll &lt; 0.10f &amp;&amp; strokes.size &gt; 4 -&gt; {
+            val newStrokes = strokes.toMutableList()
+            newStrokes.removeAt(rng.nextInt(newStrokes.size))
+            copy(strokes = newStrokes, error = Long.MAX_VALUE)
+        }
+        // 10% chance: Insert a new random stroke (accepted only if it lowers SSD by &gt; α)
+        roll &lt; 0.20f &amp;&amp; strokes.size &lt; maxStrokes -&gt; {
+            val newStrokes = strokes.toMutableList()
+            val insertIdx = rng.nextInt(newStrokes.size + 1)
+            newStrokes.add(insertIdx, StrokeGene.random(width, height, rng))
+            copy(strokes = newStrokes, error = Long.MAX_VALUE)
+        }
+        // 80% chance: Standard parameter/z-order mutation from Phase 1
+        else -&gt; mutate(width, height, rng)
     }
 }</code></pre>
       </div>

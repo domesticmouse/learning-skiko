@@ -1,11 +1,13 @@
 ---
 name: teach
-description: Teach the user a new skill or concept, within this workspace.
-disable-model-invocation: true
+description: >-
+  Author, extend, or review interactive HTML lessons (./lessons/*.html), reference cheatsheets (./reference/*.html),
+  and learning records (./learning-records/*.md) in a teaching workspace. Use when teaching a topic, deconstructing a
+  codebase into lessons, expanding a curriculum, or reviewing/auditing existing lessons for pedagogical quality and codebase alignment.
 argument-hint: "What would you like to learn about?"
 ---
 
-The user has asked you to teach them something. This is a stateful request - they intend to learn the topic over multiple sessions.
+The user has asked you to teach them something or work on the teaching curriculum in this workspace. This is a stateful request - they intend to learn the topic over multiple sessions.
 
 ## Teaching Workspace
 
@@ -82,7 +84,7 @@ When the user asks to turn an existing codebase or working application into a mu
    Include an interactive in-browser simulator, visualizer, or sandbox in the lesson HTML so the user grasps the conceptual behavior before reading and modifying backend code.
 
 5. **Mathematical Notation & Formula Typesetting**:
-   When lessons include mathematics (Bézier curves, objective functions, distance metrics, asymptotic complexity), include MathJax 3 in `<head>` so formulas render natively:
+   When lessons or reference cheatsheets (`./reference/*.html`) include mathematics (Bézier curves, objective functions, distance metrics, asymptotic complexity), include MathJax 3 in `<head>` so formulas render natively:
    ```html
    <!-- MathJax for LaTeX mathematical markup -->
    <script>
@@ -111,6 +113,21 @@ When the user asks to turn an existing codebase or working application into a mu
    - **Dedicated Interactive Simulators**: Each extension lesson must include an interactive in-browser canvas simulator with live telemetry metrics and controls to build spatial/algorithmic intuition before code.
    - **Formula Markup & Typesetting**: Always include MathJax 3 in `<head>` and wrap standalone equations in `<div class="math-card">` for mobile-responsive horizontal scrolling.
    - **Strict Quiz Formatting**: Strictly enforce identical word counts and balanced lengths across all multiple-choice options, varying the correct answer index across questions.
+
+8. **Lesson Quality & Pedagogical Review Checklist**:
+   When authoring or reviewing lessons (`./lessons/*.html` and `./reference/*.html`), verify every item below:
+   - **Codebase Fidelity (Single Source of Truth)**:
+     - Foundational lessons must match `src/`'s exact class names, constructor signatures, property names, probability weights, and mathematical metric (e.g., L2 SSD vs. L1 Manhattan).
+     - When an introductory snippet simplifies the production architecture (e.g., a single-file starter `Main.kt`), add an explicit **architectural bridge callout** explaining how the starter maps to the multi-file codebase.
+     - When Phase 2+ extension lessons design drop-in modules not yet in `src/`, explicitly announce the shift from *deconstructing existing files* to *designing extension modules* at the phase boundary, and call the exact Phase 1 symbols (`target.pixelBytes`, `Painting.createRandom`, `StrokeGene` fields) rather than inventing incompatible method or property names.
+   - **Complete Core Algorithms**:
+     - Write out the core equations, kernels, and serialization routines that a lesson or section is named after in full (e.g., the 6-line $3\times 3$ Sobel convolution in a Sobel lesson, or `.gene` save/load functions in a checkpointing section) rather than eliding the centerpiece logic with `// ... omitted for brevity`.
+   - **Simulator Authenticity (Zero Potemkin Controls)**:
+     - Wire every `<select>`, `<input>`, mode button, and draggable handle in an in-browser simulator to a live event listener and genuine mathematical calculation.
+     - Simulators must demonstrate the visual phenomenon taught in the prose (e.g., multi-island or hill-climber canvases converging toward a visual target scene, pyramid level selectors visibly changing raster resolution and step throughput, and residual heatmaps computing actual `|Target − Evolved|` pixel differences).
+   - **HTML & Asset Hygiene**:
+     - Keep shared typography and component styles in `./assets/lesson-style.css`; limit inline `<style>` blocks to lesson-specific simulator layout rules.
+     - Verify every `<div class="callout ...">` tag is closed before the next `<section>` (an unclosed callout swallows subsequent sections).
 
 ## Assets
 

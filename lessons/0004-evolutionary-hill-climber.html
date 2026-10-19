@@ -214,13 +214,18 @@
         <div class="loop-arrow">&#11015;</div>
         <div class="loop-step">
           <div class="step-badge">3</div>
-          <div><strong>Offscreen Evaluation</strong><br><small>Compute L1 pixel difference against target image.</small></div>
+          <div><strong>Offscreen Evaluation</strong><br><small>Compute L2 squared pixel difference (SSD) against target image.</small></div>
         </div>
         <div class="loop-arrow">&#11015;</div>
         <div class="loop-step">
           <div class="step-badge">4</div>
-          <div><strong>Selection Decision</strong><br><small>If mutant error &le; champion error, mutant becomes new champion! Else discard.</small></div>
+          <div><strong>Selection Decision (with Neutral Drift)</strong><br><small>If mutant error &le; champion error, mutant becomes new champion! Else discard.</small></div>
         </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Why <code>&le;</code> Instead of Strict <code>&lt;</code>? (Neutral Drift)</div>
+        Notice that Step 4 accepts a mutant even when its error is <em>equal</em> (<code>mutantError &lt;= champion.error</code>). In evolutionary computation, this is called <strong>neutral drift</strong>. If a small stroke is currently hidden beneath a larger opaque stroke, mutating its position changes zero visible pixels (\(\Delta\text{Error} = 0\)). Strict inequality (<code>&lt;</code>) would trap that stroke forever, whereas <code>&le;</code> allows it to drift across flat fitness plateaus until it emerges into an uncovered region where it can reduce error!
       </div>
     </section>
 
@@ -242,13 +247,13 @@
           <span>Worker Thread Spawning</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">thread(name = "genetic-worker", isDaemon = true) {
+        <pre><code class="language-kotlin">thread(name = "GeneticPainter-Evolution", isDaemon = true) {
     while (running.get()) {
         if (paused.get()) {
-            Thread.sleep(20)
+            Thread.sleep(50)
             continue
         }
-        step()
+        // Mutate, evaluate, and publish champion...
     }
 }</code></pre>
       </div>
@@ -281,44 +286,36 @@ private fun updateBestPainting(newChampion: Painting) {
     bestPaintingRef.set(newChampion)
 }</code></pre>
       </div>
+      <div class="callout">
+        <div class="callout-title">🔒 Why Immutability Makes <code>AtomicReference</code> Safe</div>
+        <code>AtomicReference</code> only swaps the object reference atomically—it does not lock the fields inside <code>Painting</code>. This is 100% thread-safe only because we designed <code>Painting</code> and <code>StrokeGene</code> in Lesson 2 as <strong>immutable data classes</strong>! Once the worker thread publishes a <code>Painting</code> via <code>bestPaintingRef.set(currentBest)</code>, it never mutates that instance's <code>strokes</code> list in place, so the UI thread can iterate over <code>strokes</code> at 60 FPS without <code>ConcurrentModificationException</code>.
+      </div>
     </section>
 
     <!-- SECTION 4: PAINTER CODE -->
     <section id="painter-code">
       <h2><span class="section-num">4</span> The GeneticPainter Engine</h2>
       <p>
-        Examine <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/GeneticPainter.kt"><code>GeneticPainter.kt</code></a> in your project:
+        Examine the core loop in <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/GeneticPainter.kt"><code>GeneticPainter.kt</code></a> in your project:
       </p>
       <div class="code-container">
         <div class="code-header">
           <span>src/main/kotlin/GeneticPainter.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">class GeneticPainter(
-    val target: TargetImage,
-    initialStrokeCount: Int = 120,
-) {
-    private val evaluator = Evaluator(target.width, target.height, target.pixelBytes)
-    private val bestPaintingRef = AtomicReference<Painting>()
+        <pre><code class="language-kotlin">// Create a mutated candidate from the current champion
+val candidate = currentBest.mutate(width.toFloat(), height.toFloat(), rng)
 
-    fun step() {
-        val champion = bestPaintingRef.get()
+// Evaluate candidate using L2 SSD
+val candidateError = evaluator.evaluate(candidate)
+generations.incrementAndGet()
+localEvals++
 
-        // 1. Mutate
-        val mutant = champion.mutate(target.width.toFloat(), target.height.toFloat())
-
-        // 2. Evaluate fitness
-        val mutantError = evaluator.evaluate(mutant)
-
-        // 3. Selection
-        if (mutantError <= champion.error) {
-            val acceptedPainting = mutant.copy(error = mutantError)
-            bestPaintingRef.set(acceptedPainting)
-            acceptedMutations.incrementAndGet()
-        }
-
-        generations.incrementAndGet()
-    }
+// Selection: Accept if better or equal (neutral drift can help cross plateaus)
+if (candidateError <= currentBest.error) {
+    currentBest = candidate.copy(error = candidateError)
+    bestPaintingRef.set(currentBest)
+    acceptedMutations.incrementAndGet()
 }</code></pre>
       </div>
     </section>
@@ -327,9 +324,19 @@ private fun updateBestPainting(newChampion: Painting) {
     <section id="interactive-sim">
       <h2><span class="section-num">5</span> In-Browser Evolution Simulator</h2>
       <p>
-        Experience the (1+1) Hill Climber dynamics in action. Watch how generation count, error reduction, and speed correlate:
+        Experience the (1+1) Hill Climber dynamics in action. Watch how strokes rapidly block in macro colors during the first few hundred generations before slowing down into micro-refinement:
       </p>
       <div class="sim-card">
+        <div style="display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+          <div style="text-align: center;">
+            <canvas id="simTargetCanvas" width="180" height="140" style="border: 1px solid var(--card-border); border-radius: 6px; background: #0f111a; display: block;"></canvas>
+            <small style="color: var(--text-muted);">Target Scene</small>
+          </div>
+          <div style="text-align: center;">
+            <canvas id="simLiveCanvas" width="180" height="140" style="border: 1px solid var(--card-border); border-radius: 6px; background: #0f111a; display: block;"></canvas>
+            <small style="color: var(--highlight);">Champion Phenotype</small>
+          </div>
+        </div>
         <div class="sim-metrics">
           <div class="sim-metric">
             <div class="val" id="simGens">0</div>
@@ -341,7 +348,7 @@ private fun updateBestPainting(newChampion: Painting) {
           </div>
           <div class="sim-metric">
             <div class="val" id="simError">100.0%</div>
-            <div class="lbl">Error (Loss)</div>
+            <div class="lbl">Error (L2 SSD)</div>
           </div>
           <div class="sim-metric">
             <div class="val" id="simRate">0.0%</div>
@@ -431,12 +438,51 @@ private fun updateBestPainting(newChampion: Painting) {
       });
     }
 
-    // In-browser Hill Climber Simulator
+    // In-browser Hill Climber Simulator with Live Visual Canvas
     let simRunning = false;
     let simGens = 0;
     let simAccepted = 0;
     let currentError = 1.0;
     let simInterval = null;
+
+    const targetCanvas = document.getElementById('simTargetCanvas');
+    const targetCtx = targetCanvas.getContext('2d');
+    const liveCanvas = document.getElementById('simLiveCanvas');
+    const liveCtx = liveCanvas.getContext('2d');
+
+    const goalStrokes = [
+      { x0: 20, y0: 40, xc: 90, yc: 20, x1: 160, y1: 40, r: 245, g: 158, b: 11, w: 38 },
+      { x0: 90, y0: 55, xc: 90, yc: 55, x1: 91, y1: 55, r: 254, g: 240, b: 138, w: 44 },
+      { x0: 15, y0: 120, xc: 60, yc: 70, x1: 115, y1: 115, r: 49, g: 46, b: 129, w: 36 },
+      { x0: 70, y0: 125, xc: 130, yc: 75, x1: 170, y1: 120, r: 30, g: 58, b: 138, w: 36 }
+    ];
+    let liveStrokes = [];
+
+    function drawStrokeList(ctx, list) {
+      ctx.fillStyle = '#1e1b4b';
+      ctx.fillRect(0, 0, 180, 140);
+      for (const s of list) {
+        ctx.beginPath();
+        ctx.moveTo(s.x0, s.y0);
+        ctx.quadraticCurveTo(s.xc, s.yc, s.x1, s.y1);
+        ctx.strokeStyle = `rgba(${Math.round(s.r)},${Math.round(s.g)},${Math.round(s.b)},0.85)`;
+        ctx.lineWidth = s.w;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    function initVisualSim() {
+      drawStrokeList(targetCtx, goalStrokes);
+      liveStrokes = goalStrokes.map(() => ({
+        x0: Math.random() * 180, y0: Math.random() * 140,
+        xc: Math.random() * 180, yc: Math.random() * 140,
+        x1: Math.random() * 180, y1: Math.random() * 140,
+        r: Math.random() * 255, g: Math.random() * 255, b: Math.random() * 255,
+        w: 8 + Math.random() * 25
+      }));
+      drawStrokeList(liveCtx, liveStrokes);
+    }
 
     const btnToggle = document.getElementById('btnToggleSim');
     const btnReset = document.getElementById('btnResetSim');
@@ -466,20 +512,28 @@ private fun updateBestPainting(newChampion: Painting) {
       simGens = 0;
       simAccepted = 0;
       currentError = 1.0;
+      initVisualSim();
       updateUI();
     });
 
     function runStep() {
-      // Simulate 20 generations per frame
       for (let i = 0; i < 20; i++) {
         simGens++;
-        // Acceptance chance decays as error gets smaller
         const acceptanceChance = Math.max(0.015, Math.pow(currentError, 1.8) * 0.25);
         if (Math.random() < acceptanceChance) {
           simAccepted++;
           currentError *= (1.0 - (Math.random() * 0.008 + 0.001));
+          // Interpolate one random stroke slightly closer to goal
+          const idx = Math.floor(Math.random() * liveStrokes.length);
+          const s = liveStrokes[idx];
+          const g = goalStrokes[idx];
+          const alpha = 0.08;
+          for (const k of ['x0', 'y0', 'xc', 'yc', 'x1', 'y1', 'r', 'g', 'b', 'w']) {
+            s[k] += (g[k] - s[k]) * alpha;
+          }
         }
       }
+      drawStrokeList(liveCtx, liveStrokes);
       updateUI();
     }
 
@@ -490,6 +544,8 @@ private fun updateBestPainting(newChampion: Painting) {
       const rate = simGens > 0 ? (simAccepted / simGens * 100).toFixed(1) : '0.0';
       elRate.textContent = rate + '%';
     }
+
+    initVisualSim();
   </script>
 </body>
 </html>

@@ -266,12 +266,23 @@
       <div class="card-grid">
         <div class="card">
           <h4>🏝️ Isolated Demes</h4>
-          <p>Each island runs its own independent evolutionary loop on a dedicated thread, exploring distinct artistic trajectories and stroke placements without interference.</p>
+          <p>Each island runs its own independent \((1+1)\) evolutionary loop on a dedicated thread, exploring distinct artistic trajectories and stroke placements without interference.</p>
         </div>
         <div class="card">
           <h4>🔄 Asynchronous Migration</h4>
           <p>Every \(M\) generations (e.g., every 2,500 generations), each island exports its current champion to a neighbor. Migrants inject fresh genetic diversity into stagnating demes.</p>
         </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Architecture Choice: Fine-Grained \((1+\lambda)\) vs. Coarse-Grained Island Model</div>
+        <p>
+          Both Section 2 and Section 3 use \(N\) CPU cores, but they partition the work differently:
+        </p>
+        <ul>
+          <li><strong>Fine-Grained Parallelism (\((1+\lambda)\) Batch Evaluation):</strong> All \(N\) threads evaluate \(\lambda\) mutations of the <em>same</em> parent every generation, then synchronize at a barrier to pick the best child. Great for raw step speed, but all cores share one lineage and synchronize every step.</li>
+          <li><strong>Coarse-Grained Parallelism (Island Model):</strong> Each of the \(N\) threads runs an independent <strong>\((1+1)\)</strong> loop on its own island with <em>zero barrier synchronization</em>, communicating only every \(M\) generations via lock-free atomic mailboxes. This is the architecture we implement in <code>IslandCoordinator.kt</code> below because it maximizes both thread throughput and phenotypic diversity.</li>
+        </ul>
       </div>
     </section>
 
@@ -295,7 +306,7 @@
     <section id="interactive-simulator">
       <h2><span class="section-num">5</span> In-Browser Multi-Island Simulator</h2>
       <p>
-        Observe four concurrent island demes evolving in real time. Notice how each island explores different color and stroke combinations before sharing their best phenotypes during migration pulses.
+        Observe four concurrent island demes evolving toward a shared target composition (a glowing horizon with a solar disc and mountains). Notice how each island discovers different parts of the target independently before sharing its best phenotype with its ring neighbor during migration pulses.
       </p>
 
       <div class="sim-card">
@@ -376,7 +387,7 @@
     <section id="kotlin-implementation">
       <h2><span class="section-num">6</span> Kotlin Multi-Core Worker Pool</h2>
       <p>
-        Here is how to design a non-blocking multi-island coordinator in Kotlin using <code>Executors.newFixedThreadPool</code> and thread-safe atomic mailboxes for champion migration:
+        Here is how to design a non-blocking multi-island coordinator in Kotlin that plugs directly into our Phase 1 <code>TargetImage</code>, <code>Evaluator</code>, and <code>Painting</code> classes using <code>Executors.newFixedThreadPool</code> and lock-free atomic mailboxes:
       </p>
 
       <div class="code-container">
@@ -387,18 +398,20 @@
         <pre><code class="language-kotlin">import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicReferenceArray
+import kotlin.random.Random
 
 class IslandCoordinator(
     val numIslands: Int = Runtime.getRuntime().availableProcessors(),
     val target: TargetImage,
+    val strokeCount: Int = 150,
     val migrationInterval: Long = 2000L
 ) {
-    // Thread pool with one worker per CPU core
+    // Thread pool with one daemon worker per CPU core
     private val pool = Executors.newFixedThreadPool(numIslands) { runnable ->
         Thread(runnable).apply { isDaemon = true }
     }
 
-    // Migration inboxes: each island has a slot for incoming champions
+    // Migration inboxes: each island has a lock-free slot for incoming champions
     private val migrationInboxes = AtomicReferenceArray&lt;Painting&gt;(numIslands)
 
     // Global best champion exposed to the Skiko render thread
@@ -413,40 +426,43 @@ class IslandCoordinator(
     }
 
     private fun runIslandLoop(id: Int) {
-        val evaluator = Evaluator(target)
-        var localBest = Painting.random(strokeCount = 50, target.width, target.height)
-        var localError = evaluator.evaluate(localBest)
+        // Each island owns its private Evaluator (and offscreen Skia Bitmap)
+        val evaluator = Evaluator(target.width, target.height, target.pixelBytes)
+        val rng = Random(System.nanoTime() + id * 10_000L)
+        val w = target.width.toFloat()
+        val h = target.height.toFloat()
+
+        val initial = Painting.createRandom(strokeCount, w, h, rng)
+        var localBest = initial.copy(error = evaluator.evaluate(initial))
+        globalChampion.accumulateAndGet(localBest) { prev, next ->
+            if (prev == null || next.error &lt; prev.error) next else prev
+        }
+
         var generation = 0L
 
-        while (!Thread.interrupted()) {
+        while (!Thread.currentThread().isInterrupted) {
             generation++
 
-            // Check if a neighbor deposited a migrant champion in our inbox
+            // 1. Check if our ring neighbor deposited a migrant champion in our inbox
             val migrant = migrationInboxes.getAndSet(id, null)
-            if (migrant != null) {
-                val migrantError = evaluator.evaluate(migrant)
-                if (migrantError < localError) {
-                    localBest = migrant
-                    localError = migrantError
+            if (migrant != null &amp;&amp; migrant.error &lt; localBest.error) {
+                localBest = migrant
+            }
+
+            // 2. Standard (1+1) mutation step within this island
+            val mutated = localBest.mutate(w, h, rng)
+            val candidateError = evaluator.evaluate(mutated)
+
+            if (candidateError &lt;= localBest.error) {
+                localBest = mutated.copy(error = candidateError)
+
+                // Atomically publish to globalChampion without re-evaluating on the CPU
+                globalChampion.accumulateAndGet(localBest) { prev, next ->
+                    if (prev == null || next.error &lt; prev.error) next else prev
                 }
             }
 
-            // Standard (1+1) mutation step within this island
-            val candidate = localBest.mutate(target.width, target.height)
-            val candidateError = evaluator.evaluate(candidate)
-
-            if (candidateError <= localError) {
-                localBest = candidate
-                localError = candidateError
-
-                // Publish to global champion if local island broke world record
-                val currentGlobal = globalChampion.get()
-                if (currentGlobal == null || localError < evaluator.evaluate(currentGlobal)) {
-                    globalChampion.set(localBest)
-                }
-            }
-
-            // Periodic migration: send champion to next island in ring topology
+            // 3. Periodic migration: send champion to next island in ring topology
             if (generation % migrationInterval == 0L) {
                 val nextIsland = (id + 1) % numIslands
                 migrationInboxes.set(nextIsland, localBest)
@@ -528,10 +544,34 @@ class IslandCoordinator(
     ];
     const ctxs = canvases.map(c => c.getContext('2d'));
 
+    // Shared target composition: sunset sky bands, glowing sun, mountain ridges, water reflections
+    const targetStrokes = [
+      { x1: 20, y1: 25, cx: 140, cy: 15, x2: 260, y2: 25, r: 94, g: 53, b: 177, a: 0.85, w: 28 },
+      { x1: 15, y1: 50, cx: 140, cy: 42, x2: 265, y2: 50, r: 216, g: 27, b: 96, a: 0.85, w: 26 },
+      { x1: 15, y1: 75, cx: 140, cy: 70, x2: 265, y2: 75, r: 255, g: 143, b: 0, a: 0.85, w: 24 },
+      { x1: 115, y1: 55, cx: 140, cy: 25, x2: 165, y2: 55, r: 255, g: 238, b: 88, a: 0.95, w: 30 },
+      { x1: 120, y1: 62, cx: 140, cy: 82, x2: 160, y2: 62, r: 255, g: 213, b: 79, a: 0.9, w: 24 },
+      { x1: 10, y1: 105, cx: 75, cy: 52, x2: 145, y2: 105, r: 38, g: 50, b: 56, a: 0.92, w: 22 },
+      { x1: 115, y1: 108, cx: 195, cy: 48, x2: 270, y2: 108, r: 28, g: 37, b: 44, a: 0.92, w: 24 },
+      { x1: 15, y1: 125, cx: 140, cy: 120, x2: 265, y2: 125, r: 21, g: 101, b: 192, a: 0.85, w: 24 },
+      { x1: 95, y1: 118, cx: 140, cy: 115, x2: 185, y2: 118, r: 255, g: 193, b: 7, a: 0.85, w: 10 },
+      { x1: 110, y1: 132, cx: 140, cy: 130, x2: 170, y2: 132, r: 255, g: 238, b: 88, a: 0.8, w: 8 }
+    ];
+
     let running = false;
     let simInterval = null;
     let totalGenerations = 0;
     let migrationsExecuted = 0;
+
+    function strokeError(s, t) {
+      const dx = (s.x1 - t.x1) ** 2 + (s.y1 - t.y1) ** 2 +
+                 (s.cx - t.cx) ** 2 + (s.cy - t.cy) ** 2 +
+                 (s.x2 - t.x2) ** 2 + (s.y2 - t.y2) ** 2;
+      const dc = (s.r - t.r) ** 2 + (s.g - t.g) ** 2 + (s.b - t.b) ** 2;
+      const dw = (s.w - t.w) ** 2 * 40;
+      const da = (s.a - t.a) ** 2 * 10000;
+      return dx + dc * 0.35 + dw + da;
+    }
 
     class IslandSim {
       constructor(id, ctx) {
@@ -539,21 +579,23 @@ class IslandCoordinator(
         this.ctx = ctx;
         this.gens = 0;
         this.accepted = 0;
-        this.error = 1.0;
         this.strokes = [];
+        this.baseError = 1;
+        this.rawError = 1;
+        this.error = 1.0;
         this.init();
       }
 
       init() {
         this.gens = 0;
         this.accepted = 0;
-        this.error = 1.0;
         this.strokes = [];
-        this.ctx.fillStyle = '#111';
-        this.ctx.fillRect(0, 0, 280, 140);
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < targetStrokes.length; i++) {
           this.strokes.push(this.randomStroke());
         }
+        this.rawError = this.computeTotalError(this.strokes);
+        this.baseError = Math.max(1, this.rawError);
+        this.error = 1.0;
         this.render();
       }
 
@@ -568,29 +610,44 @@ class IslandCoordinator(
           r: Math.floor(Math.random() * 255),
           g: Math.floor(Math.random() * 255),
           b: Math.floor(Math.random() * 255),
-          a: 0.2 + Math.random() * 0.4,
-          w: 4 + Math.random() * 14
+          a: 0.2 + Math.random() * 0.7,
+          w: 4 + Math.random() * 26
         };
       }
 
-      mutate() {
-        const idx = Math.floor(Math.random() * this.strokes.length);
-        const s = { ...this.strokes[idx] };
-        s.cx += (Math.random() - 0.5) * 20;
-        s.cy += (Math.random() - 0.5) * 20;
-        s.w = Math.max(2, s.w + (Math.random() - 0.5) * 4);
-        return { idx, s };
+      computeTotalError(strokes) {
+        let sum = 0;
+        for (let i = 0; i < strokes.length; i++) {
+          sum += strokeError(strokes[i], targetStrokes[i]);
+        }
+        return sum;
       }
 
       step() {
         this.gens++;
-        const { idx, s } = this.mutate();
-        // Stochastic acceptance decaying over time
-        const acceptProb = Math.max(0.02, Math.pow(this.error, 1.6) * 0.35);
-        if (Math.random() < acceptProb) {
+        const idx = Math.floor(Math.random() * this.strokes.length);
+        const cur = this.strokes[idx];
+        const s = { ...cur };
+        const scale = Math.max(0.15, this.error);
+        s.x1 = Math.max(0, Math.min(280, s.x1 + (Math.random() - 0.5) * 36 * scale));
+        s.y1 = Math.max(0, Math.min(140, s.y1 + (Math.random() - 0.5) * 24 * scale));
+        s.cx = Math.max(0, Math.min(280, s.cx + (Math.random() - 0.5) * 36 * scale));
+        s.cy = Math.max(0, Math.min(140, s.cy + (Math.random() - 0.5) * 24 * scale));
+        s.x2 = Math.max(0, Math.min(280, s.x2 + (Math.random() - 0.5) * 36 * scale));
+        s.y2 = Math.max(0, Math.min(140, s.y2 + (Math.random() - 0.5) * 24 * scale));
+        s.r = Math.max(0, Math.min(255, Math.round(s.r + (Math.random() - 0.5) * 50 * scale)));
+        s.g = Math.max(0, Math.min(255, Math.round(s.g + (Math.random() - 0.5) * 50 * scale)));
+        s.b = Math.max(0, Math.min(255, Math.round(s.b + (Math.random() - 0.5) * 50 * scale)));
+        s.w = Math.max(4, Math.min(34, s.w + (Math.random() - 0.5) * 6 * scale));
+        s.a = Math.max(0.2, Math.min(0.95, s.a + (Math.random() - 0.5) * 0.2 * scale));
+
+        const oldErr = strokeError(cur, targetStrokes[idx]);
+        const newErr = strokeError(s, targetStrokes[idx]);
+        if (newErr <= oldErr) {
           this.strokes[idx] = s;
+          this.rawError = this.computeTotalError(this.strokes);
+          this.error = Math.min(1.0, this.rawError / this.baseError);
           this.accepted++;
-          this.error *= 0.998;
           this.render();
         }
       }
@@ -611,6 +668,11 @@ class IslandCoordinator(
     }
 
     const islands = ctxs.map((ctx, idx) => new IslandSim(idx, ctx));
+    const sharedBaseError = Math.max(...islands.map(i => i.rawError));
+    islands.forEach(i => {
+      i.baseError = sharedBaseError;
+      i.error = i.rawError / sharedBaseError;
+    });
 
     const btnToggle = document.getElementById('btnToggleSim');
     const btnMigrate = document.getElementById('btnMigrateNow');
@@ -637,6 +699,11 @@ class IslandCoordinator(
       totalGenerations = 0;
       migrationsExecuted = 0;
       islands.forEach(isl => isl.init());
+      const maxBase = Math.max(...islands.map(i => i.rawError));
+      islands.forEach(i => {
+        i.baseError = maxBase;
+        i.error = i.rawError / maxBase;
+      });
       updateUI();
     });
 
@@ -646,13 +713,18 @@ class IslandCoordinator(
 
     function triggerMigration() {
       migrationsExecuted++;
-      // Ring migration: copy strokes from island i to (i + 1)
-      const champions = islands.map(isl => JSON.parse(JSON.stringify(isl.strokes)));
+      // Ring migration: Island i sends its champion to (i + 1) % numIslands
+      const snapshots = islands.map(isl => ({
+        strokes: JSON.parse(JSON.stringify(isl.strokes)),
+        rawError: isl.rawError,
+        error: isl.error
+      }));
       for (let i = 0; i < numIslands; i++) {
         const target = (i + 1) % numIslands;
-        if (islands[i].error < islands[target].error) {
-          islands[target].strokes = JSON.parse(JSON.stringify(champions[i]));
-          islands[target].error = islands[i].error * 0.99;
+        if (snapshots[i].rawError < islands[target].rawError) {
+          islands[target].strokes = JSON.parse(JSON.stringify(snapshots[i].strokes));
+          islands[target].rawError = snapshots[i].rawError;
+          islands[target].error = snapshots[i].error;
           islands[target].render();
         }
       }
@@ -660,11 +732,11 @@ class IslandCoordinator(
     }
 
     function simulationLoop() {
-      for (let step = 0; step < 10; step++) {
+      for (let step = 0; step < 8; step++) {
         totalGenerations += numIslands;
         islands.forEach(isl => isl.step());
       }
-      if (totalGenerations > 0 && totalGenerations % 1000 < 40) {
+      if (totalGenerations > 0 && totalGenerations % 800 < 32) {
         triggerMigration();
       }
       updateUI();

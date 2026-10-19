@@ -224,18 +224,24 @@
         Instead of curved lines, a chromosome can be composed of <strong>translucent convex polygons</strong> (typically 3 to 6 vertices). Evolving 50 to 100 semi-transparent triangles creates stunning <em>low-poly</em> or <em>cubist</em> artworks reminiscent of early vector experiments.
       </p>
       <p>
-        In Skia, rendering a polygon is lightning-fast:
+        In Skia, rendering a polygon is lightning-fast when reusing a pre-allocated <code>Path</code>:
       </p>
       <div class="code-container">
         <div class="code-header"><span>Skia Polygon Snippet</span></div>
-        <pre><code class="language-kotlin">val path = Path().apply {
-    moveTo(vertices[0].x, vertices[0].y)
-    for (i in 1 until vertices.size) {
-        lineTo(vertices[i].x, vertices[i].y)
-    }
-    closePath()
+        <pre><code class="language-kotlin">path.reset()
+path.moveTo(vertices[0].first, vertices[0].second)
+for (i in 1 until vertices.size) {
+    path.lineTo(vertices[i].first, vertices[i].second)
 }
+path.closePath()
 canvas.drawPath(path, fillPaint)</code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Preventing Self-Intersecting "Bowtie" Polygons</div>
+        <p style="margin-bottom: 0;">
+          For \(K \ge 4\) vertices, perturbing raw Cartesian \((x_i, y_i)\) coordinates independently often causes edges to cross, creating degenerate self-intersecting "bowtie" shapes. To guarantee clean star-shaped or convex polygons under mutation, parameterize vertices in <strong>polar coordinates</strong> around a center \((c_x, c_y)\): store sorted angles \(0 \le \theta_1 &lt; \theta_2 &lt; \dots &lt; \theta_K &lt; 2\pi\) and radii \(r_i &gt; 0\), then compute \(x_i = c_x + r_i \cos\theta_i,\; y_i = c_y + r_i \sin\theta_i\).
+        </p>
       </div>
     </section>
 
@@ -255,7 +261,7 @@ canvas.drawPath(path, fillPaint)</code></pre>
 val paint = Paint().apply {
     this.shader = shader
     this.strokeWidth = width
-    this.style = PaintMode.STROKE
+    this.mode = PaintMode.STROKE
 }</code></pre>
       </div>
       <p>
@@ -297,7 +303,7 @@ val paint = Paint().apply {
     <section id="polymorphic-architecture">
       <h2><span class="section-num">7</span> Polymorphic Gene Architecture in Kotlin</h2>
       <p>
-        To combine diverse primitives in a single painting, define a <code>sealed interface Gene</code> in Kotlin:
+        To combine diverse primitives in a single painting while preserving Lesson 2's <strong>zero-allocation hot loop</strong>, define a <code>sealed interface Gene</code> that accepts the evaluator's reusable <code>Paint</code> and <code>Path</code> instances:
       </p>
 
       <div class="code-container">
@@ -307,10 +313,15 @@ val paint = Paint().apply {
         </div>
         <pre><code class="language-kotlin">import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Paint
+import org.jetbrains.skia.PaintMode
+import org.jetbrains.skia.PaintStrokeCap
+import org.jetbrains.skia.Path
+import kotlin.random.Random
 
 sealed interface Gene {
-    fun render(canvas: Canvas)
-    fun mutate(canvasWidth: Int, canvasHeight: Int): Gene
+    // Reuses pre-allocated Skia native wrappers to avoid JNI heap pressure in the hot loop
+    fun render(canvas: Canvas, paint: Paint, path: Path)
+    fun mutate(canvasWidth: Float, canvasHeight: Float, rng: Random = Random.Default): Gene
 }
 
 data class CubicCurveGene(
@@ -321,49 +332,79 @@ data class CubicCurveGene(
     val strokeWidth: Float,
     val argb: Int
 ) : Gene {
-    override fun render(canvas: Canvas) {
-        val path = org.jetbrains.skia.Path().apply {
-            moveTo(x0, y0)
-            cubicTo(cx1, cy1, cx2, cy2, x3, y3)
-        }
-        val paint = Paint().apply {
-            color = argb
-            strokeWidth = this@CubicCurveGene.strokeWidth
-            mode = org.jetbrains.skia.PaintMode.STROKE
-            isAntiAlias = true
-        }
+    override fun render(canvas: Canvas, paint: Paint, path: Path) {
+        paint.color = argb
+        paint.mode = PaintMode.STROKE
+        paint.strokeWidth = strokeWidth
+        paint.strokeCap = PaintStrokeCap.ROUND
+
+        path.reset()
+        path.moveTo(x0, y0)
+        path.cubicTo(cx1, cy1, cx2, cy2, x3, y3)
         canvas.drawPath(path, paint)
     }
 
-    override fun mutate(canvasWidth: Int, canvasHeight: Int): Gene {
-        // Stochastic perturbation of control handles...
-        return copy(cx1 = cx1 + (Math.random().toFloat() - 0.5f) * 15f)
+    override fun mutate(canvasWidth: Float, canvasHeight: Float, rng: Random): Gene =
+        copy(
+            cx1 = (cx1 + (rng.nextFloat() - 0.5f) * 20f).coerceIn(0f, canvasWidth),
+            cy1 = (cy1 + (rng.nextFloat() - 0.5f) * 20f).coerceIn(0f, canvasHeight),
+            cx2 = (cx2 + (rng.nextFloat() - 0.5f) * 20f).coerceIn(0f, canvasWidth),
+            cy2 = (cy2 + (rng.nextFloat() - 0.5f) * 20f).coerceIn(0f, canvasHeight)
+        )
+}
+
+data class TaperedStrokeGene(
+    val x0: Float, val y0: Float,
+    val xc: Float, val yc: Float,
+    val x1: Float, val y1: Float,
+    val wStart: Float, val wPeak: Float, val wEnd: Float,
+    val argb: Int
+) : Gene {
+    override fun render(canvas: Canvas, paint: Paint, path: Path) {
+        paint.color = argb
+        paint.mode = PaintMode.FILL
+        // Approximate variable-width calligraphy ribbon with 16 overlapping discs along B(t)
+        val steps = 16
+        for (i in 0..steps) {
+            val t = i.toFloat() / steps
+            val u = 1f - t
+            val x = u * u * x0 + 2f * u * t * xc + t * t * x1
+            val y = u * u * y0 + 2f * u * t * yc + t * t * y1
+            val w = wStart * u + wPeak * (4f * t * u) + wEnd * t
+            canvas.drawCircle(x, y, w * 0.5f, paint)
+        }
     }
+
+    override fun mutate(canvasWidth: Float, canvasHeight: Float, rng: Random): Gene =
+        copy(wPeak = (wPeak + (rng.nextFloat() - 0.5f) * 6f).coerceIn(4f, 36f))
 }
 
 data class PolygonGene(
     val points: List&lt;Pair&lt;Float, Float&gt;&gt;,
     val argb: Int
 ) : Gene {
-    override fun render(canvas: Canvas) {
-        val path = org.jetbrains.skia.Path().apply {
-            moveTo(points[0].first, points[0].second)
-            for (i in 1 until points.size) {
-                lineTo(points[i].first, points[i].second)
-            }
-            closePath()
+    override fun render(canvas: Canvas, paint: Paint, path: Path) {
+        paint.color = argb
+        paint.mode = PaintMode.FILL
+
+        path.reset()
+        path.moveTo(points[0].first, points[0].second)
+        for (i in 1 until points.size) {
+            path.lineTo(points[i].first, points[i].second)
         }
-        val paint = Paint().apply {
-            color = argb
-            mode = org.jetbrains.skia.PaintMode.FILL
-            isAntiAlias = true
-        }
+        path.closePath()
         canvas.drawPath(path, paint)
     }
 
-    override fun mutate(canvasWidth: Int, canvasHeight: Int): Gene {
-        // Perturb vertex coordinates...
-        return this
+    override fun mutate(canvasWidth: Float, canvasHeight: Float, rng: Random): Gene {
+        val idx = rng.nextInt(points.size)
+        val updated = points.toMutableList()
+        val (px, py) = updated[idx]
+        updated[idx] = Pair(
+            (px + (rng.nextFloat() - 0.5f) * 20f).coerceIn(0f, canvasWidth),
+            (py + (rng.nextFloat() - 0.5f) * 20f).coerceIn(0f, canvasHeight)
+        )
+        return copy(points = updated)
     }
 }</code></pre>
       </div>

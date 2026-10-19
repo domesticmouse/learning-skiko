@@ -255,6 +255,20 @@
       <p>
         Where \(\sigma_{0}\) is the initial wide search radius (e.g. 80 px), \(\sigma_{min}\) is the asymptotic micro-refinement floor (e.g. 1.5 px), and \(\tau\) is the decay time constant controlling cooling duration.
       </p>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Terminology Note: Step-Size Annealing vs. Metropolis Simulated Annealing</div>
+        <p>
+          In optimization literature, the phrase <em>annealing</em> appears in two distinct mechanisms:
+        </p>
+        <ul>
+          <li><strong>Step-Size Annealing (Mutation Cooling):</strong> Gradually shrinking the mutation radius \(\sigma(t)\) over time while still only accepting improvements (\(E_{\text{child}} \le E_{\text{parent}}\)).</li>
+          <li><strong>Metropolis Simulated Annealing (Kirkpatrick et al., 1983):</strong> Occasionally accepting a <em>worse</em> candidate (\(\Delta E = E_{\text{child}} - E_{\text{parent}} > 0\)) with Boltzmann probability \(P = \exp(-\Delta E / T(t))\) to escape deep local minima.</li>
+        </ul>
+        <p style="margin-bottom: 0;">
+          In high-dimensional vector painting (where a 150-stroke genome has 1,650 continuous parameters), accepting worse strokes quickly degrades crisp edges. In practice, <strong>step-size annealing</strong> combined with Rechenberg's 1/5th rule (Section 3) and neutral drift (\(\le\)) delivers much cleaner visual convergence.
+        </p>
+      </div>
     </section>
 
     <!-- SECTION 3: RECHENBERG'S RULE -->
@@ -320,7 +334,7 @@
     <section id="interactive-simulator">
       <h2><span class="section-num">5</span> In-Browser Annealing Simulator</h2>
       <p>
-        Experiment with temperature decay schedules and resolution tiers. Watch how the mutation radius indicator shrinks as the annealing temperature cools.
+        Experiment with temperature decay schedules and resolution tiers. Switch the <strong>Active Pyramid Level</strong> between Coarse (\(64\times64\)), Medium (\(128\times128\)), and Full (\(256\times256\)) to see both the raster pixel grid and the \(16\times / 4\times / 1\times\) evaluation throughput change in real time.
       </p>
 
       <div class="sim-card">
@@ -332,9 +346,9 @@
           <div class="sim-control-group">
             <label for="pyramidSelect">Active Pyramid Level:</label>
             <select id="pyramidSelect" style="background: var(--code-bg); color: #fff; border: 1px solid var(--card-border); padding: 0.4rem; border-radius: 4px;">
-              <option value="64">Coarse (64×64)</option>
-              <option value="128">Medium (128×128)</option>
-              <option value="256" selected>Full Res (256×256)</option>
+              <option value="64">Coarse (64×64 — 16× speed)</option>
+              <option value="128">Medium (128×128 — 4× speed)</option>
+              <option value="256" selected>Full Res (256×256 — 1× speed)</option>
             </select>
           </div>
         </div>
@@ -372,9 +386,9 @@
 
     <!-- SECTION 6: KOTLIN SCHEDULER -->
     <section id="kotlin-scheduler">
-      <h2><span class="section-num">6</span> Implementing the Annealing Scheduler</h2>
+      <h2><span class="section-num">6</span> Implementing the Annealing Scheduler & Pyramid Upscaler</h2>
       <p>
-        Encapsulate annealing dynamics into a clean, reusable Kotlin controller that modulates the mutation step size during runtime:
+        Encapsulate annealing dynamics into a reusable Kotlin controller that combines exponential base cooling with Rechenberg's 1/5th adaptive gain, alongside a coordinate upscaler for transitioning between pyramid levels:
       </p>
 
       <div class="code-container">
@@ -383,7 +397,6 @@
           <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
         </div>
         <pre><code class="language-kotlin">import kotlin.math.exp
-import kotlin.math.max
 
 class AnnealingSchedule(
     val initialSigma: Float = 60.0f,
@@ -392,33 +405,53 @@ class AnnealingSchedule(
 ) {
     private var rollingAccepted = 0
     private var rollingEvaluated = 0
+    private var adaptiveGain: Float = 1.0f
+
     var currentSigma: Float = initialSigma
         private set
 
     fun getSigma(generation: Long): Float {
-        // Base exponential temperature decay
+        // 1. Base exponential temperature decay
         val baseSigma = minSigma + (initialSigma - minSigma) * exp(-generation / tau).toFloat()
-        
-        // Dynamic adjustment based on Rechenberg's 1/5th rule
-        if (rollingEvaluated >= 500) {
+
+        // 2. Dynamic gain multiplier based on Rechenberg's 1/5th rule
+        if (rollingEvaluated &gt;= 500) {
             val ratio = rollingAccepted.toFloat() / rollingEvaluated
-            if (ratio > 0.22f) {
-                currentSigma = (currentSigma * 1.05f).coerceAtMost(initialSigma)
-            } else if (ratio < 0.18f) {
-                currentSigma = (currentSigma * 0.95f).coerceAtLeast(minSigma)
+            if (ratio &gt; 0.22f) {
+                adaptiveGain = (adaptiveGain * 1.15f).coerceAtMost(2.5f)
+            } else if (ratio &lt; 0.18f) {
+                adaptiveGain = (adaptiveGain * 0.85f).coerceAtLeast(0.25f)
             }
             rollingAccepted = 0
             rollingEvaluated = 0
         }
 
-        return max(minSigma, currentSigma)
+        // Combine scheduled cooling with live acceptance feedback
+        currentSigma = (baseSigma * adaptiveGain).coerceIn(minSigma, initialSigma)
+        return currentSigma
     }
 
     fun recordOutcome(accepted: Boolean) {
         rollingEvaluated++
         if (accepted) rollingAccepted++
     }
-}</code></pre>
+}
+
+/**
+ * Scales all stroke coordinates and widths when advancing up the Gaussian pyramid
+ * (e.g., scale = 2.0f when promoting a champion from 64x64 -> 128x128).
+ */
+fun Painting.upscale(scale: Float): Painting = copy(
+    strokes = strokes.map { s -&gt;
+        s.copy(
+            x0 = s.x0 * scale, y0 = s.y0 * scale,
+            xc = s.xc * scale, yc = s.yc * scale,
+            x1 = s.x1 * scale, y1 = s.y1 * scale,
+            strokeWidth = (s.strokeWidth * scale).coerceIn(2f, 40f)
+        )
+    },
+    error = Long.MAX_VALUE // Force re-evaluation at the new pyramid resolution
+)</code></pre>
       </div>
     </section>
 
@@ -486,6 +519,8 @@ class AnnealingSchedule(
     // SIMULATED ANNEALING INTERACTIVE CANVAS
     const canvas = document.getElementById('annealCanvas');
     const ctx = canvas.getContext('2d');
+    const offscreen = document.createElement('canvas');
+    const offCtx = offscreen.getContext('2d');
 
     let simRunning = false;
     let simInterval = null;
@@ -502,6 +537,15 @@ class AnnealingSchedule(
 
     tempSlider.addEventListener('input', (e) => {
       lblTemp.textContent = parseFloat(e.target.value).toFixed(2);
+      const temp = parseFloat(e.target.value);
+      currentSigma = Math.max(1.5, 50.0 * temp * Math.exp(-generation / 6000));
+      renderScene();
+      updateUI();
+    });
+
+    pyramidSelect.addEventListener('change', () => {
+      renderScene();
+      updateUI();
     });
 
     let strokes = [];
@@ -523,36 +567,50 @@ class AnnealingSchedule(
     }
 
     function renderScene() {
-      ctx.fillStyle = '#0f111a';
-      ctx.fillRect(0, 0, 300, 300);
+      const res = parseInt(pyramidSelect.value, 10) || 256;
+      offscreen.width = res;
+      offscreen.height = res;
+      const scale = res / 300;
 
-      // Render strokes
+      offCtx.fillStyle = '#0f111a';
+      offCtx.fillRect(0, 0, res, res);
+
+      // Render strokes onto active pyramid level buffer
       for (const s of strokes) {
-        ctx.beginPath();
-        ctx.moveTo(s.x1, s.y1);
-        ctx.quadraticCurveTo(s.cx, s.cy, s.x2, s.y2);
-        ctx.strokeStyle = s.color;
-        ctx.lineWidth = s.w;
-        ctx.lineCap = 'round';
-        ctx.stroke();
+        offCtx.beginPath();
+        offCtx.moveTo(s.x1 * scale, s.y1 * scale);
+        offCtx.quadraticCurveTo(s.cx * scale, s.cy * scale, s.x2 * scale, s.y2 * scale);
+        offCtx.strokeStyle = s.color;
+        offCtx.lineWidth = Math.max(1, s.w * scale);
+        offCtx.lineCap = 'round';
+        offCtx.stroke();
       }
+
+      // Blit pyramid buffer to 300x300 display canvas with nearest-neighbor pixelation
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, 300, 300);
+      ctx.drawImage(offscreen, 0, 0, res, res, 0, 0, 300, 300);
 
       // Draw active mutation variance circle in corner HUD
       ctx.beginPath();
       ctx.arc(45, 45, Math.max(3, currentSigma * 0.6), 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
-      
+
       ctx.fillStyle = '#38bdf8';
-      ctx.font = '10px sans-serif';
-      ctx.fillText(`±σ: ${currentSigma.toFixed(1)}px`, 25, 75);
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`±σ: ${currentSigma.toFixed(1)}px (${res}×${res})`, 16, 82);
     }
 
     function step() {
-      for (let i = 0; i < 15; i++) {
+      const res = parseInt(pyramidSelect.value, 10) || 256;
+      // Coarser pyramid levels evaluate faster per wall-clock tick (64->48, 128->20, 256->8)
+      const stepsPerTick = res === 64 ? 48 : (res === 128 ? 20 : 8);
+
+      for (let i = 0; i < stepsPerTick; i++) {
         generation++;
         rollingEvaluated++;
 
@@ -568,8 +626,8 @@ class AnnealingSchedule(
         if (Math.random() < acceptProb) {
           acceptedCount++;
           rollingAccepted++;
-          s.cx += (Math.random() - 0.5) * currentSigma * 2;
-          s.cy += (Math.random() - 0.5) * currentSigma * 2;
+          s.cx = Math.max(0, Math.min(300, s.cx + (Math.random() - 0.5) * currentSigma * 2));
+          s.cy = Math.max(0, Math.min(300, s.cy + (Math.random() - 0.5) * currentSigma * 2));
           currentError *= 0.9992;
         }
       }

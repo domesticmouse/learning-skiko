@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Skiko & Genetic Art Reference Sheet</title>
   <link rel="stylesheet" href="../assets/lesson-style.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
     body {
       display: block;
@@ -100,8 +109,8 @@
       </thead>
       <tbody>
         <tr><td>Quadratic Bézier Curve</td><td>\( B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_c + t^2 P_1, \quad t \in [0, 1] \)</td></tr>
-        <tr><td>L1 Manhattan Error</td><td>\( \text{Loss} = \sum_{p \in \text{pixels}} (|R_{\text{cand}} - R_{\text{tgt}}| + |G_{\text{cand}} - G_{\text{tgt}}| + |B_{\text{cand}} - B_{\text{tgt}}|) \)</td></tr>
-        <tr><td>Selection Rule</td><td>Accept mutant if \(\text{Error}(\text{Mutant}) \le \text{Error}(\text{Champion})\), else reject.</td></tr>
+        <tr><td>L2 Squared Error (SSD)</td><td>\( \text{Loss} = \sum_{p \in \text{pixels}} \big((R_{\text{cand}} - R_{\text{tgt}})^2 + (G_{\text{cand}} - G_{\text{tgt}})^2 + (B_{\text{cand}} - B_{\text{tgt}})^2\big) \)</td></tr>
+        <tr><td>Selection Rule (with Neutral Drift)</td><td>Accept mutant if \(\text{Error}(\text{Mutant}) \le \text{Error}(\text{Champion})\), else reject.</td></tr>
       </tbody>
     </table>
   </div>

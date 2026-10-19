@@ -12,121 +12,6 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
 
   <style>
-    :root {
-      --bg-color: #0f111a;
-      --card-bg: #1a1c29;
-      --card-border: #2e344e;
-      --accent-color: #7c4dff;
-      --accent-glow: rgba(124, 77, 255, 0.25);
-      --text-main: #e2e8f0;
-      --text-muted: #94a3b8;
-      --code-bg: #13141f;
-      --highlight: #38bdf8;
-      --success: #10b981;
-      --warning: #f59e0b;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      line-height: 1.7;
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* Sidebar Navigation */
-    #sidebar {
-      width: 300px;
-      background-color: #141622;
-      border-right: 1px solid var(--card-border);
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto;
-      padding: 2rem 1.25rem;
-      flex-shrink: 0;
-    }
-
-    #sidebar h2 {
-      font-size: 1.15rem;
-      color: #fff;
-      margin-bottom: 1.25rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    #sidebar .badge {
-      font-size: 0.7rem;
-      background: var(--accent-color);
-      color: #fff;
-      padding: 0.15rem 0.5rem;
-      border-radius: 9999px;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-    }
-
-    #sidebar ul {
-      list-style: none;
-    }
-
-    #sidebar li {
-      margin-bottom: 0.5rem;
-    }
-
-    #sidebar a {
-      display: block;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 0.9rem;
-      padding: 0.45rem 0.75rem;
-      border-radius: 6px;
-      transition: all 0.2s ease;
-    }
-
-    #sidebar a:hover, #sidebar a.active {
-      color: #fff;
-      background-color: rgba(124, 77, 255, 0.15);
-      border-left: 3px solid var(--accent-color);
-    }
-
-    /* Main Content Container */
-    #content {
-      flex: 1;
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 3rem 2.5rem 6rem;
-    }
-
-    header {
-      margin-bottom: 3rem;
-      border-bottom: 1px solid var(--card-border);
-      padding-bottom: 2rem;
-    }
-
-    header h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      line-height: 1.2;
-      background: linear-gradient(135deg, #fff 30%, #a78bfa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 1rem;
-    }
-
-    header .subtitle {
-      font-size: 1.15rem;
-      color: var(--text-muted);
-    }
-
     .badge-bar {
       display: flex;
       gap: 0.75rem;
@@ -143,75 +28,6 @@
       border-radius: 4px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
-
-    /* Section Styling */
-    section {
-      margin-bottom: 3.5rem;
-      scroll-margin-top: 2rem;
-    }
-
-    h2 {
-      font-size: 1.8rem;
-      color: #fff;
-      margin-bottom: 1rem;
-      border-bottom: 2px solid var(--card-border);
-      padding-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    h2 .section-num {
-      background: var(--accent-color);
-      color: #fff;
-      font-size: 0.9rem;
-      width: 28px;
-      height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-    }
-
-    h3 {
-      font-size: 1.3rem;
-      color: #e2e8f0;
-      margin: 1.5rem 0 0.75rem;
-    }
-
-    p {
-      margin-bottom: 1rem;
-      color: #cbd5e1;
-    }
-
-    /* Info Callouts */
-    .callout {
-      background-color: var(--card-bg);
-      border-left: 4px solid var(--accent-color);
-      padding: 1.25rem;
-      margin: 1.5rem 0;
-      border-radius: 0 8px 8px 0;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-
-    .callout.tip {
-      border-left-color: var(--highlight);
-    }
-
-    .callout.warning {
-      border-left-color: var(--warning);
-    }
-
-    .callout-title {
-      font-weight: 700;
-      margin-bottom: 0.4rem;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .callout.tip .callout-title { color: var(--highlight); }
-    .callout.warning .callout-title { color: var(--warning); }
 
     /* Code blocks container */
     .code-container {
@@ -236,10 +52,10 @@
     }
 
     .copy-btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(124, 77, 255, 0.2);
+      border: 1px solid var(--accent-color);
       color: #fff;
-      padding: 0.25rem 0.6rem;
+      padding: 0.2rem 0.6rem;
       border-radius: 4px;
       cursor: pointer;
       font-size: 0.75rem;
@@ -250,7 +66,6 @@
       background: var(--accent-color);
     }
 
-    /* Prism Customization */
     pre[class*="language-"] {
       margin: 0 !important;
       padding: 1.25rem !important;
@@ -258,20 +73,6 @@
       font-size: 0.9rem !important;
       line-height: 1.6 !important;
       border-radius: 0 0 8px 8px !important;
-    }
-
-    code[class*="language-"] {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Code", Consolas, monospace !important;
-    }
-
-    /* Inline code */
-    :not(pre) > code {
-      background: #24283b;
-      color: #f7768e;
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.85em;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
 
     /* Interactive Live Demo Simulation Canvas */
@@ -644,9 +445,14 @@ ktlint {
         <li>Draws anti-aliased vector typography using Skia's <code>Font</code> and <code>Typeface</code></li>
       </ul>
 
+      <div class="callout tip">
+        <div class="callout-title">💡 From Minimal Render Loop to Genetic Painter</div>
+        <p>The starter code below isolates the core <code>JFrame</code> + <code>SkiaLayer</code> + <code>SkikoRenderDelegate</code> lifecycle so you can see every moving part on a single screen. In our workspace's <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>src/main/kotlin/Main.kt</code></a>, this exact same <code>onRender</code> skeleton hosts the dual-pane Genetic Algorithm Painter and live telemetry HUD (which we will deconstruct step by step through Lessons 2–5).</p>
+      </div>
+
       <div class="code-container">
         <div class="code-header">
-          <span>src/main/kotlin/Main.kt</span>
+          <span>Minimal Starter: Main.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
         <pre><code class="language-kotlin">import org.jetbrains.skiko.SkiaLayer
@@ -859,13 +665,13 @@ ktlint installGitPreCommitHook</code></pre>
 
     <!-- SECTION 10: ADVANCED SKIA DRAWING CAPABILITIES -->
     <section id="advanced-skia">
-      <h2><span class="section-num">10</span> Essential Skia API Quick Reference</h2>
-      <p>Here are common Skia drawing techniques you can plug into your <code>onRender</code> loop:</p>
+      <h2><span class="section-num">10</span> Essential Skia API Quick Reference (Course Preview)</h2>
+      <p>Beyond basic circles and rectangles, Skia provides vector paths and hardware shaders that we will use to evolve expressive brush strokes in <a href="0002-vector-brush-strokes.html">Lesson 2</a> and <a href="0010-diverse-vector-primitives.html">Lesson 10</a>:</p>
 
       <h3>1. Linear Gradient Shaders</h3>
       <div class="code-container">
         <div class="code-header">
-          <span>Kotlin (Gradients)</span>
+          <span>Kotlin (Gradients — Detailed in Lesson 10)</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
         <pre><code class="language-kotlin">import org.jetbrains.skia.Shader
@@ -887,7 +693,7 @@ canvas.drawRoundRect(50f, 50f, 350f, 250f, 20f, 20f, gradientPaint)</code></pre>
       <h3>2. Custom Vector Paths & Curves</h3>
       <div class="code-container">
         <div class="code-header">
-          <span>Kotlin (Paths)</span>
+          <span>Kotlin (Paths — Detailed in Lesson 2 &amp; Lesson 10)</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
         <pre><code class="language-kotlin">import org.jetbrains.skia.Path
@@ -929,6 +735,9 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
       <div class="callout tip">
         <div class="callout-title">💡 Pitfall 3: High-DPI / Retina Displays</div>
         <p>Skiko handles DPI scaling automatically, but keep in mind that <code>width</code> and <code>height</code> passed to <code>onRender</code> are in physical pixels, while Swing event coordinates may be in logical points. <code>skiaLayer.contentScale</code> gives you the current pixel scaling factor (e.g. <code>2.0</code> on Retina screens).</p>
+      </div>
+    </section>
+
     <!-- KNOWLEDGE CHECK & RETRIEVAL PRACTICE -->
     <section id="retrieval-quiz">
       <h2><span class="section-num">12</span> Knowledge Check</h2>
