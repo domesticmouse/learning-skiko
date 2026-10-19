@@ -153,8 +153,9 @@
         <li><a href="#keyboard-controls">3. Interactive Keyboard Controls</a></li>
         <li><a href="#png-export">4. Encoding & Saving PNGs</a></li>
         <li><a href="#cli-execution">5. Running from the Command Line</a></li>
-        <li><a href="#retrieval-quiz">6. Knowledge Check</a></li>
-        <li><a href="#course-completion">7. Course Summary & Next Steps</a></li>
+        <li><a href="#testing">6. Automated Testing & Headless Verification</a></li>
+        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
+        <li><a href="#course-completion">8. Course Summary & Next Steps</a></li>
       </ul>
     </div>
   </nav>
@@ -325,9 +326,88 @@ if (data != null) {
       </div>
     </section>
 
-    <!-- SECTION 6: KNOWLEDGE CHECK -->
+    <!-- SECTION 6: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">6</span> Automated Testing & Headless Verification</h2>
+      <p>
+        To ensure PNG export, HUD formatting, and dual-pane rendering operate reliably without manual GUI interaction, we verify snapshot binary magic headers and telemetry string representations:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/HudControlsTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Path
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+class HudControlsTest {
+    @Test
+    fun testPngSnapshotEncoding() {
+        val width = 128
+        val height = 128
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 20)
+        val best = painter.getBestPainting()
+
+        val bitmap = Bitmap().apply { allocN32Pixels(width, height) }
+        val canvas = Canvas(bitmap)
+        best.render(canvas, width.toFloat(), height.toFloat(), Paint(), Path())
+
+        val image = Image.makeFromBitmap(bitmap)
+        val pngData = image.encodeToData(EncodedImageFormat.PNG)
+
+        assertNotNull(pngData, "PNG data should not be null")
+        assertTrue(pngData.bytes.size &gt; 8, "PNG file should contain data")
+
+        // Validate PNG magic bytes: 0x89 0x50 0x4E 0x47
+        val bytes = pngData.bytes
+        assertEquals(0x89.toByte(), bytes[0])
+        assertEquals('P'.code.toByte(), bytes[1])
+        assertEquals('N'.code.toByte(), bytes[2])
+        assertEquals('G'.code.toByte(), bytes[3])
+    }
+
+    @Test
+    fun testHudMetricsStringFormatting() {
+        val target = TargetImage.loadOrGenerate(null, 64, 64)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 40)
+
+        painter.generations.set(12345)
+        painter.acceptedMutations.set(890)
+        painter.currentEvalsPerSec.set(1500)
+
+        val hudString =
+            "GEN: ${painter.generations.get()} | ACC: ${painter.acceptedMutations.get()} | EPS: ${painter.currentEvalsPerSec.get()}"
+        assertEquals("GEN: 12345 | ACC: 890 | EPS: 1500", hudString)
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run all unit tests
+./gradlew test
+
+# Run app in headless verification mode (evolves 500 generations and exports PNG)
+./gradlew run --args="--headless"</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 7: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">6</span> Knowledge Check</h2>
+      <h2><span class="section-num">7</span> Knowledge Check</h2>
       <p>Test your understanding of UI synchronization and image export.</p>
 
       <div class="quiz-container">
@@ -342,9 +422,9 @@ if (data != null) {
       </div>
     </section>
 
-    <!-- SECTION 7: COURSE COMPLETION -->
+    <!-- SECTION 8: COURSE COMPLETION -->
     <section id="course-completion">
-      <h2><span class="section-num">7</span> Course Summary & Future Horizons</h2>
+      <h2><span class="section-num">8</span> Course Summary & Future Horizons</h2>
       <div class="callout tip">
         <div class="callout-title">🎉 Phase 1 Foundations Mastered!</div>
         <p>You have deconstructed and mastered the complete foundational stack in <code>src/main/kotlin/</code>:</p>

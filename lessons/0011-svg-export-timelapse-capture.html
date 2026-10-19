@@ -165,8 +165,9 @@
         <li><a href="#timelapse-capture">5. Automated Frame-Dump Time-Lapses</a></li>
         <li><a href="#ffmpeg-assembly">6. Compiling 4K Videos via FFmpeg CLI</a></li>
         <li><a href="#interactive-exporter">7. In-Browser SVG Exporter & Player</a></li>
-        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
-        <li><a href="#graduation">9. Course Graduation & Next Horizons</a></li>
+        <li><a href="#automated-testing">8. Automated Testing for SVG & Checkpointing</a></li>
+        <li><a href="#retrieval-quiz">9. Knowledge Check</a></li>
+        <li><a href="#graduation">10. Course Graduation & Next Horizons</a></li>
       </ul>
     </div>
   </nav>
@@ -379,9 +380,92 @@ ffmpeg -framerate 60 -i frames/frame_%05d.png \
       </div>
     </section>
 
-    <!-- SECTION 8: KNOWLEDGE CHECK -->
+    <!-- SECTION 8: AUTOMATED TESTING -->
+    <section id="automated-testing">
+      <h2><span class="section-num">8</span> Automated Testing for SVG &amp; Checkpointing</h2>
+      <p>
+        Reliable production export demands automated unit tests. We verify that <code>toSvg()</code> generates well-formed W3C XML containing coordinate viewboxes and curve commands, and that <code>saveCheckpoint()</code> and <code>loadCheckpoint()</code> achieve lossless round-trip serialization:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/PaintingExportTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+        </div>
+        <pre><code class="language-kotlin">import java.io.File
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class PaintingExportTest {
+    @Test
+    fun testToSvgGeneratesValidXml() {
+        val strokes = listOf(
+            StrokeGene(10f, 20f, 30f, 40f, 50f, 60f, 4.5f, 255, 128, 0, 200),
+            StrokeGene(5f, 15f, 25f, 35f, 45f, 55f, 2.0f, 0, 255, 128, 100)
+        )
+        val painting = Painting(strokes = strokes, error = 123456L)
+
+        val svg = painting.toSvg(256, 256)
+
+        assertTrue(svg.startsWith("&lt;svg xmlns=\"http://www.w3.org/2000/svg\""))
+        assertTrue(svg.contains("viewBox=\"0 0 256 256\""))
+        assertTrue(svg.contains("&lt;rect width=\"256\" height=\"256\" fill=\"#ffffff\"/&gt;"))
+        assertTrue(svg.contains("d=\"M 10.0,20.0 Q 30.0,40.0 50.0,60.0\""))
+        assertTrue(svg.contains("stroke=\"rgb(255,128,0)\""))
+        assertTrue(svg.contains("stroke-width=\"4.5\""))
+        assertTrue(svg.trimEnd().endsWith("&lt;/svg&gt;"))
+    }
+
+    @Test
+    fun testCheckpointSaveAndLoadRoundtrip() {
+        val strokes = listOf(
+            StrokeGene(12.5f, 34.2f, 56.1f, 78.9f, 90.0f, 12.3f, 6.5f, 250, 100, 50, 180),
+            StrokeGene(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 1.5f, 10, 20, 30, 40)
+        )
+        val original = Painting(strokes = strokes, error = 987654321L)
+
+        val tempFile = File.createTempFile("checkpoint_test", ".gene")
+        try {
+            original.saveCheckpoint(tempFile)
+            assertTrue(tempFile.exists() &amp;&amp; tempFile.length() &gt; 0)
+
+            val loaded = loadCheckpoint(tempFile)
+            assertEquals(original.error, loaded.error)
+            assertEquals(original.strokes.size, loaded.strokes.size)
+
+            for (i in original.strokes.indices) {
+                val s1 = original.strokes[i]
+                val s2 = loaded.strokes[i]
+                assertEquals(s1.x0, s2.x0)
+                assertEquals(s1.y0, s2.y0)
+                assertEquals(s1.xc, s2.xc)
+                assertEquals(s1.yc, s2.yc)
+                assertEquals(s1.x1, s2.x1)
+                assertEquals(s1.y1, s2.y1)
+                assertEquals(s1.strokeWidth, s2.strokeWidth)
+                assertEquals(s1.r, s2.r)
+                assertEquals(s1.g, s2.g)
+                assertEquals(s1.b, s2.b)
+                assertEquals(s1.a, s2.a)
+            }
+        } finally {
+            tempFile.delete()
+        }
+    }
+}</code></pre>
+      </div>
+
+      <p>Run the export test suite using Gradle CLI:</p>
+      <div class="code-container">
+        <div class="code-header"><span>Terminal</span></div>
+        <pre><code class="language-bash">./gradlew test --tests "PaintingExportTest"</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 9: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">8</span> Knowledge Check</h2>
+      <h2><span class="section-num">9</span> Knowledge Check</h2>
       <p>Verify your understanding of vector serialization and time-lapse capture workflows.</p>
 
       <div class="quiz-container">
@@ -396,9 +480,9 @@ ffmpeg -framerate 60 -i frames/frame_%05d.png \
       </div>
     </section>
 
-    <!-- SECTION 9: COURSE GRADUATION -->
+    <!-- SECTION 10: COURSE GRADUATION -->
     <section id="graduation">
-      <h2><span class="section-num">9</span> Course Graduation & Next Horizons</h2>
+      <h2><span class="section-num">10</span> Course Graduation & Next Horizons</h2>
       <p>
         🎉 <strong>Congratulations!</strong> You have traversed the complete genetic art engineering stack:
       </p>

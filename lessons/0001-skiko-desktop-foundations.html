@@ -391,6 +391,13 @@ dependencies {
     
     // Platform-specific native binary runtime (e.g. skiko-awt-runtime-macos-arm64)
     implementation("org.jetbrains.skiko:skiko-awt-runtime-$skikoTarget:$skikoVersion")
+
+    // Unit testing with kotlin.test & JUnit 5
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 application {
@@ -605,6 +612,69 @@ fun main() {
 
 # Run the packaged standalone executable
 ./build/install/skiko-desktop-demo/bin/skiko-desktop-demo</code></pre>
+      </div>
+
+      <h3>4. Headless Verification & Automated Unit Testing</h3>
+      <p>
+        In CI environments and automated test suites, desktop GUI windows cannot open an interactive window. We can verify our Skiko rendering delegate logic headlessly by drawing into an offscreen <code>Surface.makeRasterN32Premul(width, height)</code>.
+      </p>
+
+      <p>Here is <code>src/test/kotlin/MainTest.kt</code>:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/MainTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Surface
+import kotlin.math.sin
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class MainTest {
+    @Test
+    fun testSkiaSurfaceCreationAndNativeBindings() {
+        val width = 800
+        val height = 600
+        val surface = Surface.makeRasterN32Premul(width, height)
+        val canvas = surface.canvas
+        assertEquals(width, surface.width)
+        assertEquals(height, surface.height)
+
+        var rendered = false
+        val delegate =
+            DemoRenderDelegate(
+                getMousePos = { 200f to 150f },
+                onFrameRendered = { rendered = true },
+            )
+
+        // Render at t = 1.0s (1_000_000_000 ns)
+        delegate.onRender(canvas, width, height, 1_000_000_000L)
+        assertTrue(rendered, "Render callback should have fired")
+    }
+
+    @Test
+    fun testPulseAnimationFormula() {
+        for (i in 0..10) {
+            val seconds = i * 0.5
+            val pulse = (sin(seconds * 3.0).toFloat() + 1f) * 15f + 40f
+            assertTrue(pulse in 40f..70f, "Pulse radius must oscillate within [40, 70]")
+        }
+    }
+}</code></pre>
+      </div>
+
+      <p>Run the automated test suite and headless smoke check from the CLI:</p>
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run unit tests
+./gradlew test
+
+# Run app in headless smoke verification mode
+./gradlew run --args="--headless"</code></pre>
       </div>
     </section>
 

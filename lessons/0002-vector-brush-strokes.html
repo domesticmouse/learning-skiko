@@ -146,8 +146,9 @@
         <li><a href="#painting-chromosome">4. The Painting Chromosome</a></li>
         <li><a href="#interactive-sandbox">5. Interactive Stroke Sandbox</a></li>
         <li><a href="#mutation-operators">6. Mutation Operators</a></li>
-        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
-        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+        <li><a href="#testing">7. Automated Testing & Verification</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
       </ul>
     </div>
   </nav>
@@ -441,9 +442,100 @@ data class StrokeGene(
       </div>
     </section>
 
-    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <!-- SECTION 7: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">7</span> Automated Testing & Verification</h2>
+      <p>
+        To ensure mutations maintain valid geometric bounds, color ranges, and proper chromosome copying semantics, we write comprehensive unit tests using <code>kotlin.test</code>.
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/VectorBrushTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Path
+import org.jetbrains.skia.Surface
+import kotlin.random.Random
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
+
+class VectorBrushTest {
+    private val rng = Random(12345)
+    private val width = 400f
+    private val height = 300f
+
+    @Test
+    fun testStrokeGeneCreationAndBounds() {
+        val stroke = StrokeGene.random(width, height, rng)
+        assertTrue(stroke.x0 in 0f..width, "x0 must be within width")
+        assertTrue(stroke.y0 in 0f..height, "y0 must be within height")
+        assertTrue(stroke.strokeWidth in 3f..25f, "strokeWidth in [3, 25]")
+        assertTrue(stroke.r in 0..255 &amp;&amp; stroke.g in 0..255 &amp;&amp; stroke.b in 0..255)
+        assertTrue(stroke.a in 30..180, "alpha in [30, 180]")
+    }
+
+    @Test
+    fun testStrokeGeneMutationStaysWithinBounds() {
+        var stroke = StrokeGene.random(width, height, rng)
+        for (i in 0 until 500) {
+            stroke = stroke.mutate(width, height, rng)
+            assertTrue(stroke.x0 in 0f..width &amp;&amp; stroke.y0 in 0f..height)
+            assertTrue(stroke.xc in 0f..width &amp;&amp; stroke.yc in 0f..height)
+            assertTrue(stroke.x1 in 0f..width &amp;&amp; stroke.y1 in 0f..height)
+            assertTrue(stroke.strokeWidth in 2f..35f)
+            assertTrue(stroke.r in 0..255 &amp;&amp; stroke.g in 0..255 &amp;&amp; stroke.b in 0..255)
+            assertTrue(stroke.a in 20..230)
+        }
+    }
+
+    @Test
+    fun testPaintingCreationAndMutation() {
+        val strokeCount = 40
+        val painting = Painting.createRandom(strokeCount, width, height, rng)
+        assertEquals(strokeCount, painting.strokes.size)
+
+        val mutated = painting.mutate(width, height, rng)
+        assertEquals(strokeCount, mutated.strokes.size)
+        assertEquals(Long.MAX_VALUE, mutated.error, "Mutated child should have error reset to MAX_VALUE")
+        assertNotEquals(painting.strokes, mutated.strokes, "Mutated painting strokes should differ")
+    }
+
+    @Test
+    fun testPaintingRenderOntoSurface() {
+        val surface = Surface.makeRasterN32Premul(width.toInt(), height.toInt())
+        val canvas = surface.canvas
+        val paint = Paint()
+        val path = Path()
+
+        val painting = Painting.createRandom(25, width, height, rng)
+        painting.render(canvas, width, height, paint, path)
+
+        assertEquals(width.toInt(), surface.width)
+        assertEquals(height.toInt(), surface.height)
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run unit tests
+./gradlew test
+
+# Run interactive vector brush preview in headless verification mode
+./gradlew run --args="--headless"</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
       <p>Test your understanding of genotype representation and rendering performance.</p>
 
       <div class="quiz-container">
@@ -458,9 +550,9 @@ data class StrokeGene(
       </div>
     </section>
 
-    <!-- SECTION 8: NEXT STEPS -->
+    <!-- SECTION 9: NEXT STEPS -->
     <section id="next-steps">
-      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
       <div class="callout tip">
         <div class="callout-title">📖 Recommended Primary Source</div>
         <p>Read Roger Alsing's original article: <a href="https://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/" target="_blank" rel="noopener">"Genetic Programming: Evolution of Mona Lisa"</a>. Alsing popularized approximating famous artwork using 50 semi-transparent polygons, laying the groundwork for our curved stroke approach.</p>

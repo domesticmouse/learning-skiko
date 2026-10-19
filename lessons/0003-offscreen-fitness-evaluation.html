@@ -126,8 +126,9 @@
         <li><a href="#evaluator-code">4. The Evaluator Class</a></li>
         <li><a href="#pixel-demo">5. Interactive Pixel Calculator</a></li>
         <li><a href="#target-image">6. The TargetImage Loader</a></li>
-        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
-        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+        <li><a href="#testing">7. Automated Testing & Verification</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
       </ul>
     </div>
   </nav>
@@ -231,7 +232,8 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
     val backgroundColor: Int = Color.WHITE,
 ) {
     // Reusable offscreen buffers — allocated ONCE per Evaluator!
-    private val bitmap = Bitmap().apply { allocN32Pixels(width, height) }
+    // Disambiguate with this@Evaluator so width/height aren't shadowed by Bitmap properties inside .apply
+    private val bitmap = Bitmap().apply { allocN32Pixels(this@Evaluator.width, this@Evaluator.height) }
     private val canvas = Canvas(bitmap)
     private val paint = Paint()
     private val path = Path()
@@ -315,9 +317,94 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
       </div>
     </section>
 
-    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <!-- SECTION 7: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">7</span> Automated Testing & Verification</h2>
+      <p>
+        We write unit tests with <code>kotlin.test</code> to verify:
+      </p>
+      <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+        <li>Zero error when evaluating an identical white painting against an all-white target.</li>
+        <li>Exact L2 SSD maximum error calculation when comparing pure white against pure black (\(\text{SSD} = W \times H \times 3 \times 255^2\)).</li>
+        <li>Non-negative error guarantees across arbitrary procedural targets and random chromosomes.</li>
+        <li>Valid dimensions and byte array stride for procedural target generation.</li>
+      </ul>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/EvaluatorTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Color
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class EvaluatorTest {
+    private val width = 64
+    private val height = 64
+
+    @Test
+    fun testTargetImageProceduralGeneration() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        assertEquals(width, target.width)
+        assertEquals(height, target.height)
+        assertEquals(width * height * 4, target.pixelBytes.size)
+        assertTrue(target.sourceDescription.contains("Procedural"), "Fallback should have procedural description")
+    }
+
+    @Test
+    fun testEvaluatorZeroErrorOnIdenticalWhite() {
+        val whiteBytes = ByteArray(width * height * 4) { -1 } // 0xFF in signed byte
+        val evaluator = Evaluator(width, height, whiteBytes, backgroundColor = Color.WHITE)
+
+        val emptyPainting = Painting(strokes = emptyList())
+        val error = evaluator.evaluate(emptyPainting)
+        assertEquals(0L, error, "An empty white painting against an all-white target must yield error 0")
+    }
+
+    @Test
+    fun testEvaluatorMaxErrorOnInvertedBlackAndWhite() {
+        val blackBytes = ByteArray(width * height * 4)
+        for (i in 0 until (width * height)) {
+            blackBytes[i * 4 + 3] = -1 // Alpha = 255
+        }
+
+        val evaluator = Evaluator(width, height, blackBytes, backgroundColor = Color.WHITE)
+        val emptyPainting = Painting(strokes = emptyList())
+        val error = evaluator.evaluate(emptyPainting)
+
+        val expected = (width * height).toLong() * 3L * (255L * 255L)
+        assertEquals(expected, error, "Error against opposite color must match exact SSD formula")
+    }
+
+    @Test
+    fun testEvaluatorNonNegativeError() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val evaluator = Evaluator(width, height, target.pixelBytes)
+        val painting = Painting.createRandom(20, width.toFloat(), height.toFloat())
+        val error = evaluator.evaluate(painting)
+        assertTrue(error &gt;= 0L, "Fitness error must be non-negative")
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run all unit tests
+./gradlew test
+
+# Run headless evaluation verification
+./gradlew run --args="--headless"</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
       <p>Verify your understanding of headless evaluation and byte-level arithmetic.</p>
 
       <div class="quiz-container">
@@ -332,9 +419,9 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
       </div>
     </section>
 
-    <!-- SECTION 8: NEXT STEPS -->
+    <!-- SECTION 9: NEXT STEPS -->
     <section id="next-steps">
-      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
       <div class="callout tip">
         <div class="callout-title">📖 Recommended Primary Source</div>
         <p>Review the <a href="https://skia.org/docs/user/api/SkBitmap_Reference/" target="_blank" rel="noopener">Google Skia Bitmap API Reference</a>. Understanding how pixel memory, row bytes, and color types interact provides the foundation for zero-copy graphics operations.</p>

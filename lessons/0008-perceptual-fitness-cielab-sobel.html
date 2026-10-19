@@ -159,8 +159,9 @@
         <li><a href="#sobel-filter">4. Sobel Edge Saliency Convolution</a></li>
         <li><a href="#interactive-visualizer">5. In-Browser Perceptual Comparator</a></li>
         <li><a href="#kotlin-evaluator">6. Zero-Allocation LUT Evaluator</a></li>
-        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
-        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+        <li><a href="#testing">7. Automated Testing & Verification</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
       </ul>
     </div>
   </nav>
@@ -412,9 +413,87 @@ class PerceptualEvaluator(val target: TargetImage, val edgeEmphasis: Float = 3.0
       </div>
     </section>
 
-    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <!-- SECTION 7: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">7</span> Automated Testing & Verification</h2>
+      <p>
+        We write unit tests to verify:
+      </p>
+      <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+        <li>Sobel convolution generates valid edge weights (\(\ge 1.0\)) and emphasizes high-contrast silhouettes.</li>
+        <li>CIELAB 3D lookup table generates bounded \(L^*\) lightness values (\(\approx 0\) for black, \(\approx 100\) for white).</li>
+        <li>Evaluating identical images produces exactly \(\Delta E = 0\).</li>
+      </ul>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/PerceptualEvaluatorTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class PerceptualEvaluatorTest {
+    private val width = 32
+    private val height = 32
+
+    @Test
+    fun testSobelWeightComputationOnSyntheticEdge() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val evaluator = PerceptualEvaluator(target = target, edgeEmphasis = 4.0f)
+
+        assertEquals(width * height, evaluator.edgeWeights.size)
+        for (w in evaluator.edgeWeights) {
+            assertTrue(w &gt;= 1.0f, "Edge weight must be &gt;= 1.0")
+        }
+
+        val maxWeight = evaluator.edgeWeights.maxOrNull() ?: 1.0f
+        assertTrue(maxWeight &gt; 1.5f, "Sobel detector should highlight image silhouettes")
+    }
+
+    @Test
+    fun testLabLookupTableQuantizationBounds() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val evaluator = PerceptualEvaluator(target = target)
+
+        assertEquals(32 * 32 * 32 * 3, evaluator.labLut.size)
+
+        // Index for black (0, 0, 0)
+        val blackIdx = evaluator.lutBaseIndex(0, 0, 0)
+        val lBlack = evaluator.labLut[blackIdx]
+        assertTrue(lBlack in 0f..5f, "Black L* should be near 0")
+
+        // Index for white (255, 255, 255)
+        val whiteIdx = evaluator.lutBaseIndex(255, 255, 255)
+        val lWhite = evaluator.labLut[whiteIdx]
+        assertTrue(lWhite in 95f..105f, "White L* should be near 100")
+    }
+
+    @Test
+    fun testPerceptualEvaluationIdenticalYieldsZero() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val evaluator = PerceptualEvaluator(target = target)
+
+        val zeroDiff = evaluator.evaluatePerceptual(target.pixelBytes)
+        assertEquals(0.0, zeroDiff, 0.001, "Evaluating target against itself must yield deltaE = 0")
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run unit tests
+./gradlew test</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
       <p>Validate your grasp of perceptual metrics and convolutional edge detection.</p>
 
       <div class="quiz-container">
@@ -429,9 +508,9 @@ class PerceptualEvaluator(val target: TargetImage, val edgeEmphasis: Float = 3.0
       </div>
     </section>
 
-    <!-- SECTION 8: NEXT STEPS -->
+    <!-- SECTION 9: NEXT STEPS -->
     <section id="next-steps">
-      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
       <div class="callout tip">
         <div class="callout-title">📖 Recommended Primary Source</div>
         <p>

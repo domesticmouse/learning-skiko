@@ -1,0 +1,108 @@
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Font
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Path
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.Surface
+import org.jetbrains.skiko.SkiaLayer
+import org.jetbrains.skiko.SkikoRenderDelegate
+import java.awt.Dimension
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
+import javax.swing.JFrame
+import javax.swing.SwingUtilities
+import javax.swing.WindowConstants
+import kotlin.random.Random
+
+class VectorPaintingRenderDelegate(
+    var painting: Painting,
+    val canvasWidth: Float,
+    val canvasHeight: Float,
+    val onFrameRendered: (() -> Unit)? = null,
+) : SkikoRenderDelegate {
+    private val strokePaint = Paint()
+    private val strokePath = Path()
+    private val hudBgPaint = Paint().apply { color = 0xCC181825.toInt() }
+    private val textPaint =
+        Paint().apply {
+            color = 0xFFCDD6F4.toInt()
+            isAntiAlias = true
+        }
+    private val font = Font().apply { size = 15f }
+
+    override fun onRender(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        nanoTime: Long,
+    ) {
+        painting.render(canvas, width.toFloat(), height.toFloat(), strokePaint, strokePath)
+
+        // Draw HUD overlay
+        canvas.drawRect(Rect.makeXYWH(20f, 20f, 360f, 50f), hudBgPaint)
+        canvas.drawString(
+            "Strokes: ${painting.strokes.size} | Press [SPACE] to Mutate",
+            30f,
+            50f,
+            font,
+            textPaint,
+        )
+
+        onFrameRendered?.invoke()
+    }
+}
+
+fun main(args: Array<String>) {
+    val simWidth = 800f
+    val simHeight = 600f
+    val rng = Random(42)
+    var painting = Painting.createRandom(50, simWidth, simHeight, rng)
+
+    if (args.contains("--headless")) {
+        println("Running Step 2 headless smoke verification...")
+        val surface = Surface.makeRasterN32Premul(simWidth.toInt(), simHeight.toInt())
+        val delegate = VectorPaintingRenderDelegate(painting, simWidth, simHeight)
+        delegate.onRender(surface.canvas, simWidth.toInt(), simHeight.toInt(), System.nanoTime())
+        println("Successfully rendered random painting with ${painting.strokes.size} strokes.")
+        val mutated = painting.mutate(simWidth, simHeight, rng)
+        delegate.painting = mutated
+        delegate.onRender(surface.canvas, simWidth.toInt(), simHeight.toInt(), System.nanoTime())
+        println("Successfully mutated painting and rendered second frame.")
+        return
+    }
+
+    SwingUtilities.invokeLater {
+        val window =
+            JFrame("Lesson 2: Vector Brush Strokes & Genes").apply {
+                defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
+                preferredSize = Dimension(simWidth.toInt(), simHeight.toInt())
+            }
+
+        val skiaLayer = SkiaLayer()
+        val delegate =
+            VectorPaintingRenderDelegate(
+                painting = painting,
+                canvasWidth = simWidth,
+                canvasHeight = simHeight,
+                onFrameRendered = { skiaLayer.needRedraw() },
+            )
+        skiaLayer.renderDelegate = delegate
+
+        window.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyPressed(e: KeyEvent) {
+                    if (e.keyCode == KeyEvent.VK_SPACE) {
+                        painting = painting.mutate(simWidth, simHeight, Random.Default)
+                        delegate.painting = painting
+                        skiaLayer.needRedraw()
+                    }
+                }
+            },
+        )
+
+        skiaLayer.attachTo(window.contentPane)
+        window.pack()
+        window.setLocationRelativeTo(null)
+        window.isVisible = true
+    }
+}

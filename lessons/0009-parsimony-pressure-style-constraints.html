@@ -164,8 +164,9 @@
         <li><a href="#stylistic-constraints">4. Artistic Style Constraints</a></li>
         <li><a href="#interactive-simulator">5. In-Browser Parsimony Playground</a></li>
         <li><a href="#kotlin-regularizer">6. Regularized Evaluator in Kotlin</a></li>
-        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
-        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+        <li><a href="#testing">7. Automated Testing & Verification</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
       </ul>
     </div>
   </nav>
@@ -383,9 +384,88 @@ fun Painting.mutateVariableLength(
       </div>
     </section>
 
-    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <!-- SECTION 7: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">7</span> Automated Testing & Verification</h2>
+      <p>
+        Regularized fitness frameworks and structural mutation operators must be tested for budget hard limits, accurate penalty accumulation, and dynamic stroke insertion and pruning:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/RegularizedEvaluatorTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import kotlin.random.Random
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class RegularizedEvaluatorTest {
+    private val width = 64
+    private val height = 64
+
+    @Test
+    fun testHardStrokeBudgetEnforcement() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val baseEvaluator = Evaluator(width, height, target.pixelBytes)
+        val regEvaluator = RegularizedEvaluator(baseEvaluator, maxStrokeBudget = 15)
+
+        val withinBudget = Painting.createRandom(15, width.toFloat(), height.toFloat())
+        assertTrue(regEvaluator.evaluate(withinBudget) &lt; Double.MAX_VALUE, "Within budget should evaluate normally")
+
+        val overBudget = Painting.createRandom(16, width.toFloat(), height.toFloat())
+        assertEquals(Double.MAX_VALUE, regEvaluator.evaluate(overBudget), "Over budget must be disqualified")
+    }
+
+    @Test
+    fun testParsimonyPenaltyCalculation() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val baseEvaluator = Evaluator(width, height, target.pixelBytes)
+        val alpha = 10_000.0
+        val regEvaluator = RegularizedEvaluator(baseEvaluator, parsimonyAlpha = alpha, maxStrokeBudget = 50)
+
+        val painting = Painting.createRandom(20, width.toFloat(), height.toFloat())
+        val baseScore = baseEvaluator.evaluate(painting).toDouble()
+        val regScore = regEvaluator.evaluate(painting)
+
+        val expected = baseScore + 20 * alpha
+        assertEquals(expected, regScore, 0.001, "Regularized score must add alpha * N_strokes")
+    }
+
+    @Test
+    fun testMutateVariableLengthCanAddAndRemoveStrokes() {
+        val initial = Painting.createRandom(20, width.toFloat(), height.toFloat())
+        val rng = Random(42)
+
+        var strokeCountDecreased = false
+        var strokeCountIncreased = false
+
+        for (i in 0 until 200) {
+            val mutated = initial.mutateVariableLength(width.toFloat(), height.toFloat(), maxStrokes = 40, rng = rng)
+            if (mutated.strokes.size &lt; initial.strokes.size) strokeCountDecreased = true
+            if (mutated.strokes.size &gt; initial.strokes.size) strokeCountIncreased = true
+        }
+
+        assertTrue(strokeCountDecreased, "Variable length mutation must support stroke deletion")
+        assertTrue(strokeCountIncreased, "Variable length mutation must support stroke insertion")
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run unit tests
+./gradlew test</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
       <p>Test your understanding of parsimony pressure, multi-objective fitness, and artistic constraints.</p>
 
       <div class="quiz-container">
@@ -400,9 +480,9 @@ fun Painting.mutateVariableLength(
       </div>
     </section>
 
-    <!-- SECTION 8: NEXT STEPS -->
+    <!-- SECTION 9: NEXT STEPS -->
     <section id="next-steps">
-      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
       <div class="callout tip">
         <div class="callout-title">📖 Recommended Primary Source</div>
         <p>

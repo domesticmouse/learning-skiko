@@ -172,8 +172,9 @@
         <li><a href="#painter-code">4. The GeneticPainter Engine</a></li>
         <li><a href="#interactive-sim">5. In-Browser Evolution Simulator</a></li>
         <li><a href="#convergence">6. Convergence Phases</a></li>
-        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
-        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+        <li><a href="#testing">7. Automated Testing & Verification</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
       </ul>
     </div>
   </nav>
@@ -380,9 +381,122 @@ if (candidateError <= currentBest.error) {
       </div>
     </section>
 
-    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <!-- SECTION 7: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">7</span> Automated Testing & Verification</h2>
+      <p>
+        Multi-threaded evolutionary loops require verification of thread coordination, monotonic fitness convergence, and boundary clamps on stroke budget tuning.
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/GeneticPainterTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class GeneticPainterTest {
+    private val width = 64
+    private val height = 64
+
+    @Test
+    fun testInitializationAndChampionPresence() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 30)
+
+        assertEquals(width, painter.width)
+        assertEquals(height, painter.height)
+        assertEquals(30, painter.strokeCount)
+        assertTrue(painter.initialError &gt; 0L, "Initial error must be positive")
+
+        val best = painter.getBestPainting()
+        assertEquals(30, best.strokes.size)
+        assertEquals(painter.initialError, best.error)
+    }
+
+    @Test
+    fun testEvolutionMonotonicFitnessImprovement() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 25)
+
+        painter.start()
+        val start = System.currentTimeMillis()
+        while (painter.generations.get() &lt; 100L &amp;&amp; System.currentTimeMillis() - start &lt; 3000L) {
+            Thread.sleep(20)
+        }
+        painter.stop()
+
+        assertTrue(painter.generations.get() &gt;= 50L, "Should have executed at least 50 generations")
+        val finalBest = painter.getBestPainting()
+        assertTrue(
+            finalBest.error &lt;= painter.initialError,
+            "Best error (${finalBest.error}) must be &lt;= initial error (${painter.initialError})"
+        )
+    }
+
+    @Test
+    fun testPauseResumeLifecycle() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 20)
+
+        assertEquals(false, painter.paused.get())
+        painter.togglePause()
+        assertEquals(true, painter.paused.get())
+        painter.togglePause()
+        assertEquals(false, painter.paused.get())
+    }
+
+    @Test
+    fun testAdjustStrokesBoundaryClamping() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 50)
+
+        painter.adjustStrokes(20)
+        assertEquals(70, painter.strokeCount)
+        assertEquals(70, painter.getBestPainting().strokes.size)
+
+        painter.adjustStrokes(-1000) // Lower bound clamp at 10
+        assertEquals(10, painter.strokeCount)
+        assertEquals(10, painter.getBestPainting().strokes.size)
+
+        painter.adjustStrokes(1000) // Upper bound clamp at 500
+        assertEquals(500, painter.strokeCount)
+        assertEquals(500, painter.getBestPainting().strokes.size)
+    }
+
+    @Test
+    fun testReset() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 20)
+
+        painter.generations.set(500)
+        painter.acceptedMutations.set(120)
+        painter.reset()
+
+        assertEquals(0L, painter.generations.get())
+        assertEquals(0L, painter.acceptedMutations.get())
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run unit tests
+./gradlew test
+
+# Run headless 1-second evolutionary loop benchmark
+./gradlew run --args="--headless"</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
       <p>Check your storage strength on concurrency and evolutionary strategy design.</p>
 
       <div class="quiz-container">
@@ -397,9 +511,9 @@ if (candidateError <= currentBest.error) {
       </div>
     </section>
 
-    <!-- SECTION 8: NEXT STEPS -->
+    <!-- SECTION 9: NEXT STEPS -->
     <section id="next-steps">
-      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
       <div class="callout tip">
         <div class="callout-title">📖 Recommended Primary Source</div>
         <p>Explore Ingo Rechenberg and Hans-Paul Schwefel's foundational work on <a href="https://en.wikipedia.org/wiki/Evolution_strategy" target="_blank" rel="noopener">Evolution Strategies (1+1 ES)</a>. Understanding Schwefel's 1/5th success rule provides deep insight into optimizing mutation step sizes.</p>

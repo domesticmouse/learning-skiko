@@ -188,8 +188,9 @@
         <li><a href="#migration-topology">4. Migration Topologies</a></li>
         <li><a href="#interactive-simulator">5. In-Browser Multi-Island Simulator</a></li>
         <li><a href="#kotlin-implementation">6. Kotlin Multi-Core Worker Pool</a></li>
-        <li><a href="#retrieval-quiz">7. Knowledge Check</a></li>
-        <li><a href="#next-steps">8. Next Steps & Resources</a></li>
+        <li><a href="#testing">7. Automated Testing & Verification</a></li>
+        <li><a href="#retrieval-quiz">8. Knowledge Check</a></li>
+        <li><a href="#next-steps">9. Next Steps & Resources</a></li>
       </ul>
     </div>
   </nav>
@@ -473,9 +474,89 @@ class IslandCoordinator(
       </div>
     </section>
 
-    <!-- SECTION 7: KNOWLEDGE CHECK -->
+    <!-- SECTION 7: TESTING & VERIFICATION -->
+    <section id="testing">
+      <h2><span class="section-num">7</span> Automated Testing & Verification</h2>
+      <p>
+        Multi-core architectures must be tested for thread confinement, monotonic convergence under asynchronous ring migration, and clean thread pool lifecycle termination:
+      </p>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>src/test/kotlin/IslandCoordinatorTest.kt</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-kotlin">import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+class IslandCoordinatorTest {
+    private val width = 64
+    private val height = 64
+
+    @Test
+    fun testIslandInitialization() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val coordinator = IslandCoordinator(numIslands = 4, target = target, strokeCount = 20)
+
+        assertEquals(4, coordinator.numIslands)
+        assertEquals(20, coordinator.strokeCount)
+        assertEquals(0L, coordinator.totalGenerations.get())
+    }
+
+    @Test
+    fun testConcurrentEvolutionAndGlobalChampion() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val coordinator =
+            IslandCoordinator(
+                numIslands = 3,
+                target = target,
+                strokeCount = 20,
+                migrationInterval = 20L,
+            )
+
+        coordinator.start()
+        val start = System.currentTimeMillis()
+        while (coordinator.totalGenerations.get() &lt; 150L &amp;&amp; System.currentTimeMillis() - start &lt; 3000L) {
+            Thread.sleep(20)
+        }
+        coordinator.stop()
+
+        val champion = coordinator.globalChampion.get()
+        assertNotNull(champion, "Global champion must be present after concurrent execution")
+        assertTrue(coordinator.totalGenerations.get() &gt;= 100L, "Should have executed at least 100 total generations")
+        assertTrue(coordinator.acceptedMutations.get() &gt; 0L, "Should have accepted mutations")
+        assertTrue(champion.error &lt; Long.MAX_VALUE, "Champion error must be a valid evaluated value")
+    }
+
+    @Test
+    fun testCleanStopLifecycle() {
+        val target = TargetImage.loadOrGenerate(null, width, height)
+        val coordinator = IslandCoordinator(numIslands = 2, target = target, strokeCount = 10)
+
+        coordinator.start()
+        assertTrue(coordinator.isRunning.get())
+        Thread.sleep(50)
+        coordinator.stop()
+        assertEquals(false, coordinator.isRunning.get())
+    }
+}</code></pre>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <span>Terminal</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-bash"># Run unit tests across all test suites
+./gradlew test</code></pre>
+      </div>
+    </section>
+
+    <!-- SECTION 8: KNOWLEDGE CHECK -->
     <section id="retrieval-quiz">
-      <h2><span class="section-num">7</span> Knowledge Check</h2>
+      <h2><span class="section-num">8</span> Knowledge Check</h2>
       <p>Test your retention of concurrent evolutionary architectures and migration dynamics.</p>
 
       <div class="quiz-container">
@@ -490,9 +571,9 @@ class IslandCoordinator(
       </div>
     </section>
 
-    <!-- SECTION 8: NEXT STEPS -->
+    <!-- SECTION 9: NEXT STEPS -->
     <section id="next-steps">
-      <h2><span class="section-num">8</span> Recommended Primary Source & Next Steps</h2>
+      <h2><span class="section-num">9</span> Recommended Primary Source & Next Steps</h2>
       <div class="callout tip">
         <div class="callout-title">📖 Recommended Primary Source</div>
         <p>
