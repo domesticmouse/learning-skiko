@@ -81,9 +81,25 @@ When the user asks to turn an existing codebase or working application into a mu
 4. **Interactive Intuition Preceding Code**:
    Include an interactive in-browser simulator, visualizer, or sandbox in the lesson HTML so the user grasps the conceptual behavior before reading and modifying backend code.
 
+5. **Mathematical Notation & Formula Typesetting**:
+   When lessons include mathematics (Bézier curves, objective functions, distance metrics, asymptotic complexity), include MathJax 3 in `<head>` so formulas render natively:
+   ```html
+   <!-- MathJax for LaTeX mathematical markup -->
+   <script>
+     window.MathJax = {
+       tex: {
+         inlineMath: [['\\(', '\\)']],
+         displayMath: [['\\[', '\\]'], ['$$', '$$']]
+       }
+     };
+   </script>
+   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+   ```
+   Wrap standalone equations in `<div class="math-card">` (styled in `./assets/lesson-style.css`) with horizontal scrolling (`overflow-x: auto`) for mobile readability.
+
 ## Assets
 
-Lessons are built from reusable **components**, stored in `./assets/`: stylesheets, quiz widgets, simulators, diagram helpers, and anything else a second lesson could reuse.
+Lessons are built from reusable **components**, stored in `./assets/`: stylesheets (with shared styles like `.math-card`), quiz widgets, simulators, diagram helpers, and anything else a second lesson could reuse.
 
 Reuse is the default, not the exception. Before authoring a lesson, read `./assets/` and build from the components already there. When a lesson needs something new and reusable, write it as a component in `./assets/` and link to it; never inline code a future lesson would duplicate.
 

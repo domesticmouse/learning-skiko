@@ -13,15 +13,18 @@
   <!-- Shared Course Styles -->
   <link rel="stylesheet" href="../assets/lesson-style.css">
 
+  <!-- MathJax for LaTeX mathematical markup -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
   <style>
-    .math-card {
-      background-color: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 1.25rem 1.75rem;
-      margin: 1.5rem 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
     .pixel-inspector {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -139,7 +142,7 @@
         In image evolution, our objective is to <em>minimize difference</em> (also known as the error or loss function):
       </p>
       <div class="math-card">
-        Fitness Error = \sum_{x, y} \text{Distance}(\text{CandidatePixel}(x, y), \text{TargetPixel}(x, y))
+        \[ \text{Fitness Error} = \sum_{x, y} \text{Distance}(\text{CandidatePixel}(x, y), \text{TargetPixel}(x, y)) \]
       </div>
       <p>
         A lower error score means a closer visual approximation. An error of <code>0</code> would represent an identical pixel-for-pixel duplicate.

@@ -341,3 +341,14 @@ code:not([class*="language-"]) {
   background-color: var(--accent-color);
   border-color: var(--accent-color);
 }
+
+/* Mathematical Display Cards */
+.math-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
