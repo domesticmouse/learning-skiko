@@ -84,3 +84,24 @@ $$\text{TotalFitness} = \text{PixelError} + \alpha \cdot N_{\text{strokes}} + \b
 * $\alpha$: Stroke count penalty coefficient. Allows dynamic insertion and deletion of strokes, finding the optimal balance between detail and simplicity.
 * $\beta$: Area penalty to encourage broad watercolor glazes or delicate pointillist marks.
 
+---
+
+## 7. Vector Primitives & W3C SVG XML Serialization
+
+### Primitives Mapping
+| Primitive | Geometric Degrees of Freedom | Skia Path Command | W3C SVG Equivalent |
+| :--- | :--- | :--- | :--- |
+| **Quadratic Bézier** | 8: $(x_0, y_0), (x_c, y_c), (x_1, y_1), w, \text{ARGB}$ | `path.quadTo(xc, yc, x1, y1)` | `<path d="M x0,y0 Q xc,yc x1,y1" stroke="..." stroke-width="w"/>` |
+| **Cubic Bézier** | 10: $(x_0, y_0), (x_{c1}, y_{c1}), (x_{c2}, y_{c2}), (x_1, y_1), w, \text{ARGB}$ | `path.cubicTo(xc1, yc1, xc2, yc2, x1, y1)` | `<path d="M x0,y0 C xc1,yc1 xc2,yc2 x1,y1" .../>` |
+| **Convex Polygon** | $2N + 4$: $N$ vertices $(x_i, y_i) + \text{ARGB}$ | `path.lineTo(...)` + `path.closePath()` | `<polygon points="x0,y0 x1,y1 ..." fill="..."/>` |
+
+### Deterministic Checkpointing & CLI Time-Lapse Assembly
+1. **Chromosome Checkpoint Format**: Serialize `Painting` to `.gene` (JSON array of stroke primitives and parameters) to allow resume, branching, and headless rendering at $4\text{K}$ resolution.
+2. **FFmpeg CLI Video Encoding**:
+   ```bash
+   ffmpeg -framerate 60 -i frame_%05d.png \
+          -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+          timelapse.mp4
+   ```
+
+

@@ -104,6 +104,14 @@ When the user asks to turn an existing codebase or working application into a mu
    - **Synchronize Intra-Course Navigation**: Update the persistent sidebar navigation (`#sidebar .series-nav`) across all existing lesson HTML files with phase headers (`.nav-header`) and planned statuses (`.nav-planned`) so the learner maintains situational awareness of both completed foundations and upcoming roadmap milestones.
    - **Record in Learning Records & Mission**: Document the established curriculum expansion in `./learning-records/` and update `./MISSION.md` success criteria to reflect the new technical scope.
 
+7. **Implementing Extension Lessons**:
+   When authoring the extension lessons:
+   - **Promote Planned Statuses to Active**: Transition `.nav-planned` spans to live hyperlinks (`<a href="...">`) across all existing and new lesson HTML files, marking the current lesson with `class="active"`.
+   - **Sequential Lesson Footer Chaining**: Chain the `.lesson-nav` footer buttons (`<a class="nav-btn">`) smoothly across phase boundaries (e.g., the last foundational lesson links forward to the first extension lesson, and the final course capstone links to restart or review).
+   - **Dedicated Interactive Simulators**: Each extension lesson must include an interactive in-browser canvas simulator with live telemetry metrics and controls to build spatial/algorithmic intuition before code.
+   - **Formula Markup & Typesetting**: Always include MathJax 3 in `<head>` and wrap standalone equations in `<div class="math-card">` for mobile-responsive horizontal scrolling.
+   - **Strict Quiz Formatting**: Strictly enforce identical word counts and balanced lengths across all multiple-choice options, varying the correct answer index across questions.
+
 ## Assets
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets (with shared styles like `.math-card`), quiz widgets, simulators, diagram helpers, and anything else a second lesson could reuse.

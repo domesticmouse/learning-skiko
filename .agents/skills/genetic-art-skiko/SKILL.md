@@ -61,13 +61,24 @@ data class StrokeGene(
         canvas.drawPath(path, paint)
     }
 
-    /**
-     * Non-destructively mutates one or more properties using compiler-generated copy().
-     */
     fun mutate(width: Float, height: Float, rng: Random): StrokeGene {
         val delta = (rng.nextFloat() - 0.5f) * 24f
         return copy(xc = (xc + delta).coerceIn(0f, width))
     }
+}
+```
+
+### Polymorphic Vector Primitives (`sealed interface Gene`)
+To combine diverse geometries beyond simple parabolic arcs:
+* **Cubic Béziers (`Path.cubicTo`)**: Two control handles ($P_1, P_2$) allow curvature inflection points (S-curves) essential for facial silhouettes and organic waves.
+* **Pressure-Tapered Calligraphy**: Modulate stroke width along the curve envelope ($w(t)$ interpolation) for ink and brush realism.
+* **Translucent Convex Polygons**: 3- to 6-vertex closed paths for low-poly or cubist stained-glass aesthetics.
+* **Skia Shaders (`Shader.makeLinearGradient`)**: Multi-stop gradient shaders applied to paints for soft atmospheric lighting and dual-tone transitions.
+
+```kotlin
+sealed interface Gene {
+    fun render(canvas: Canvas, paint: Paint, path: Path)
+    fun mutate(width: Float, height: Float, rng: Random): Gene
 }
 ```
 
@@ -145,6 +156,17 @@ In image approximation, classic crossover (mating two candidate paintings) creat
    `currentBest = candidate.copy(error = candidateError)`
    * Allowing neutral mutations (`<=` instead of `<`) allows the genome to drift along neutral fitness plateaus toward better configurations.
 
+### Adaptive Annealing & Rechenberg's 1/5th Rule
+Static mutation variances waste millions of cycles in mature runs. Modulate mutation step size $\sigma$ dynamically:
+1. **Exponential Temperature Decay**:
+   $$\sigma(t) = \sigma_{min} + (\sigma_0 - \sigma_{min}) \cdot \exp(-t/\tau)$$
+2. **Rechenberg's 1/5th Success Rule**:
+   Measure acceptance ratio $r_{acc} = N_{accepted} / N_{evaluated}$ over a rolling window of 500–1,000 generations:
+   - If $r_{acc} > 0.20$: Increase $\sigma \leftarrow \sigma \cdot 1.10$ (landscape is smooth; explore wider).
+   - If $r_{acc} < 0.20$: Decrease $\sigma \leftarrow \sigma \cdot 0.90$ (landscape is steep; narrow search).
+3. **Multi-Resolution Image Pyramids**:
+   Evolve coarse foundation strokes on $64\times 64$ downsampled targets (16x faster), freeze the background layers, upsample coordinates, and refine micro-detail on full $256\times 256$ or $512\times 512$ rasters.
+
 ### Multi-Core Island Model
 To harness multi-core CPUs without synchronization bottlenecks:
 - Spawn independent worker threads, each running its own $(1+1)$ or $(1+\lambda)$ evolutionary loop with a private `Evaluator`.
@@ -171,6 +193,22 @@ To harness multi-core CPUs without synchronization bottlenecks:
    * `[S]`: Export raster PNG via `image.encodeToData(EncodedImageFormat.PNG)`.
 6. **Scalable Vector Export (SVG)**:
    Serialize the vector chromosome (`strokes`) directly to W3C SVG XML (`<svg>`, `<path d="M... Q..." stroke="..." />`). This produces infinite-resolution vector artwork that can be rendered at any scale without raster pixelation.
+   ```kotlin
+   fun Painting.toSvg(w: Int, h: Int): String = buildString {
+       appendLine("""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 $w $h">""")
+       strokes.forEach { s ->
+           val (r, g, b, a) = s.rgba()
+           appendLine("""  <path d="M ${s.x0},${s.y0} Q ${s.xc},${s.yc} ${s.x1},${s.y1}" stroke="rgb($r,$g,$b)" stroke-opacity="$a" stroke-width="${s.strokeWidth}" fill="none"/>""")
+       }
+       appendLine("</svg>")
+   }
+   ```
+7. **Time-Lapse Capture & FFmpeg Assembly**:
+   Dump PNG snapshots on a geometric cadence (e.g. every 10 accepted mutations in early generations, every 250 in late generations). Compile to 60 FPS 4K video via CLI:
+   ```bash
+   ffmpeg -framerate 60 -i frame_%05d.png -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p timelapse.mp4
+   ```
 
 See detailed theory, mathematical derivations, and fitness algorithms in:
 [`references/evolutionary-strategies-and-fitness.md`](./references/evolutionary-strategies-and-fitness.md).
+
