@@ -32,18 +32,20 @@ Evolutionary painting follows a decoupled architecture:
 
 ---
 
-## 2. Chromosome Representation: Brush Strokes vs Polygons
+## 2. Chromosome Representation: Immutable Data Classes
+
+Idiomatic Kotlin favors **immutable data classes** (`val`) for chromosomes. This ensures predictable structural equality (`==`), prevents thread-safety hazards (e.g. the Swing UI rendering the champion while the background thread mutates candidates), and leverages compiler-generated `.copy(...)` for non-destructive mutation.
 
 ### Curved Brush Stroke Gene (`Path.quadTo`)
 Translucent quadratic Bézier strokes mimic oil/watercolor glaze:
 
 ```kotlin
 data class StrokeGene(
-    var x0: Float, var y0: Float,
-    var xc: Float, var yc: Float,
-    var x1: Float, var y1: Float,
-    var strokeWidth: Float,
-    var r: Int, var g: Int, var b: Int, var a: Int
+    val x0: Float, val y0: Float,
+    val xc: Float, val yc: Float,
+    val x1: Float, val y1: Float,
+    val strokeWidth: Float,
+    val r: Int, val g: Int, val b: Int, val a: Int,
 ) {
     fun render(canvas: Canvas, paint: Paint, path: Path) {
         paint.color = Color.makeARGB(a, r, g, b)
@@ -57,6 +59,32 @@ data class StrokeGene(
         path.quadTo(xc, yc, x1, y1)
         canvas.drawPath(path, paint)
     }
+
+    /**
+     * Non-destructively mutates one or more properties using compiler-generated copy().
+     */
+    fun mutate(width: Float, height: Float, rng: Random): StrokeGene {
+        val delta = (rng.nextFloat() - 0.5f) * 24f
+        return copy(xc = (xc + delta).coerceIn(0f, width))
+    }
+}
+```
+
+### Painting Candidate (`Painting`)
+A painting holds a read-only list of strokes and an evaluation score:
+
+```kotlin
+data class Painting(
+    val strokes: List<StrokeGene>,
+    val error: Long = Long.MAX_VALUE,
+) {
+    fun mutate(width: Float, height: Float, rng: Random): Painting {
+        if (strokes.isEmpty()) return this
+        val newStrokes = strokes.toMutableList()
+        val idx = rng.nextInt(newStrokes.size)
+        newStrokes[idx] = newStrokes[idx].mutate(width, height, rng)
+        return copy(strokes = newStrokes, error = Long.MAX_VALUE)
+    }
 }
 ```
 
@@ -67,6 +95,7 @@ data class StrokeGene(
 To evaluate 1,000+ candidates per second:
 1. **Reuse all objects**: Allocate `Bitmap`, `Canvas`, `Paint`, and `Path` once per evaluator thread.
 2. **Flat Byte Array Sum of Squared Differences (SSD)**: Avoid `Color` object allocations in hot loops.
+3. **Pure Evaluation**: Avoid mutating candidate objects in `evaluate()`; return the score directly.
 
 ```kotlin
 class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
@@ -89,7 +118,6 @@ class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
             error += (dr * dr) + (dg * dg) + (db * db)
             i += 4 // BGRA / RGBA step
         }
-        painting.error = error
         return error
     }
 }
@@ -102,11 +130,12 @@ class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
 In image approximation, classic crossover (mating two candidate paintings) often creates visual chaos due to spatial layer conflicts. Use **$(1 + 1)$ or $(1 + \lambda)$ Hill Climbing**:
 
 1. Maintain one current champion (`Painting`).
-2. Clone and mutate with weighted operators:
+2. Mutate non-destructively to produce a candidate (`val candidate = currentBest.mutate(...)`) with weighted operators:
    - **80%**: Nudge geometry ($\pm 10$px), color ($\pm 15$ RGB), opacity ($\pm 10$ alpha), or thickness.
    - **15%**: Swap layer order of two strokes (foreground $\leftrightarrow$ background).
    - **5%**: Re-seed a completely new random stroke (breaks local plateaus).
-3. If `candidateError <= championError`, replace the champion (`champion = candidate`).
+3. If `candidateError <= currentBest.error`, accept and adopt:
+   `currentBest = candidate.copy(error = candidateError)`
    * Allowing neutral mutations (`<=` instead of `<`) allows the genome to drift along neutral fitness plateaus toward better configurations.
 
 ---

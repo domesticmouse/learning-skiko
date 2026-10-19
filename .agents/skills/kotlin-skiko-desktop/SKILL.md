@@ -38,14 +38,20 @@ Always target an **LTS release (Java 21 or Java 17)**:
 # macOS (Homebrew)
 brew install openjdk@21 gradle
 
-# Ensure OpenJDK 21 is prioritized in your shell environment:
-export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
-export JAVA_HOME="/opt/homebrew/opt/openjdk@21"
+# Register OpenJDK 21 with macOS system wrappers (/usr/libexec/java_home and Gradle):
+sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+
+# Prioritize OpenJDK 21 in your shell environment (~/.zshrc):
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
+
+> **macOS `java_home` Note**: Without symlinking `openjdk.jdk` into `/Library/Java/JavaVirtualMachines/`, macOS wrappers like `/usr/libexec/java_home` and Gradle will report `Unable to locate a Java Runtime`, even if Homebrew installed the package.
 
 Verify with:
 ```bash
-java -version    # Should report OpenJDK 21
+/usr/libexec/java_home -V    # Should list openjdk-21.jdk
+java -version                # Should report OpenJDK 21
 gradle -v
 ```
 

@@ -31,9 +31,9 @@ class GeneticPainter(
 
     init {
         val initial = Painting.createRandom(strokeCount, width.toFloat(), height.toFloat())
-        evaluator.evaluate(initial)
-        initialError = initial.error
-        bestPaintingRef.set(initial)
+        val err = evaluator.evaluate(initial)
+        initialError = err
+        bestPaintingRef.set(initial.copy(error = err))
     }
 
     fun getBestPainting(): Painting = bestPaintingRef.get()
@@ -43,7 +43,7 @@ class GeneticPainter(
 
         thread(name = "GeneticPainter-Evolution", isDaemon = true) {
             val rng = Random(System.currentTimeMillis())
-            var currentBest = bestPaintingRef.get().clone()
+            var currentBest = bestPaintingRef.get()
 
             var localEvals = 0L
             var lastMetricTime = System.currentTimeMillis()
@@ -55,8 +55,7 @@ class GeneticPainter(
                 }
 
                 // Create a mutated candidate from the current champion
-                val candidate = currentBest.clone()
-                candidate.mutate(width.toFloat(), height.toFloat(), rng)
+                val candidate = currentBest.mutate(width.toFloat(), height.toFloat(), rng)
 
                 // Evaluate candidate
                 val candidateError = evaluator.evaluate(candidate)
@@ -65,7 +64,7 @@ class GeneticPainter(
 
                 // Selection: Accept if better or equal (neutral drift can help cross plateaus)
                 if (candidateError <= currentBest.error) {
-                    currentBest = candidate
+                    currentBest = candidate.copy(error = candidateError)
                     bestPaintingRef.set(currentBest)
                     acceptedMutations.incrementAndGet()
                 }
@@ -93,8 +92,8 @@ class GeneticPainter(
 
     fun reset() {
         val newInit = Painting.createRandom(strokeCount, width.toFloat(), height.toFloat())
-        evaluator.evaluate(newInit)
-        bestPaintingRef.set(newInit)
+        val err = evaluator.evaluate(newInit)
+        bestPaintingRef.set(newInit.copy(error = err))
         generations.set(0)
         acceptedMutations.set(0)
     }
@@ -104,15 +103,16 @@ class GeneticPainter(
         if (newCount == strokeCount) return
         strokeCount = newCount
 
-        val current = bestPaintingRef.get().clone()
+        val currentStrokes = bestPaintingRef.get().strokes.toMutableList()
         val rng = Random(System.currentTimeMillis())
-        while (current.strokes.size < strokeCount) {
-            current.strokes.add(StrokeGene.random(width.toFloat(), height.toFloat(), rng))
+        while (currentStrokes.size < strokeCount) {
+            currentStrokes.add(StrokeGene.random(width.toFloat(), height.toFloat(), rng))
         }
-        while (current.strokes.size > strokeCount) {
-            current.strokes.removeAt(current.strokes.size - 1)
+        while (currentStrokes.size > strokeCount) {
+            currentStrokes.removeAt(currentStrokes.size - 1)
         }
-        evaluator.evaluate(current)
-        bestPaintingRef.set(current)
+        val candidate = Painting(strokes = currentStrokes)
+        val err = evaluator.evaluate(candidate)
+        bestPaintingRef.set(candidate.copy(error = err))
     }
 }

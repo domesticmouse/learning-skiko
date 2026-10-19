@@ -11,33 +11,18 @@ import kotlin.random.Random
  * Rendered as a quadratic Bézier curve with rounded caps and translucent color.
  */
 data class StrokeGene(
-    var x0: Float,
-    var y0: Float,
-    var xc: Float,
-    var yc: Float,
-    var x1: Float,
-    var y1: Float,
-    var strokeWidth: Float,
-    var r: Int,
-    var g: Int,
-    var b: Int,
-    var a: Int,
+    val x0: Float,
+    val y0: Float,
+    val xc: Float,
+    val yc: Float,
+    val x1: Float,
+    val y1: Float,
+    val strokeWidth: Float,
+    val r: Int,
+    val g: Int,
+    val b: Int,
+    val a: Int,
 ) {
-    fun copy(): StrokeGene =
-        StrokeGene(
-            x0 = x0,
-            y0 = y0,
-            xc = xc,
-            yc = yc,
-            x1 = x1,
-            y1 = y1,
-            strokeWidth = strokeWidth,
-            r = r,
-            g = g,
-            b = b,
-            a = a,
-        )
-
     fun render(
         canvas: Canvas,
         paint: Paint,
@@ -56,22 +41,22 @@ data class StrokeGene(
     }
 
     /**
-     * Mutates one or more properties of this stroke.
+     * Mutates one or more properties of this stroke and returns a new StrokeGene.
      */
     fun mutate(
         width: Float,
         height: Float,
         rng: Random,
-    ) {
+    ): StrokeGene {
         val mutationType = rng.nextInt(5)
-        when (mutationType) {
+        return when (mutationType) {
             0 -> {
                 // Jitter control point
                 val delta = (rng.nextFloat() - 0.5f) * 24f
                 if (rng.nextBoolean()) {
-                    xc = (xc + delta).coerceIn(0f, width)
+                    copy(xc = (xc + delta).coerceIn(0f, width))
                 } else {
-                    yc = (yc + delta).coerceIn(0f, height)
+                    copy(yc = (yc + delta).coerceIn(0f, height))
                 }
             }
             1 -> {
@@ -79,32 +64,37 @@ data class StrokeGene(
                 val deltaX = (rng.nextFloat() - 0.5f) * 20f
                 val deltaY = (rng.nextFloat() - 0.5f) * 20f
                 if (rng.nextBoolean()) {
-                    x0 = (x0 + deltaX).coerceIn(0f, width)
-                    y0 = (y0 + deltaY).coerceIn(0f, height)
+                    copy(
+                        x0 = (x0 + deltaX).coerceIn(0f, width),
+                        y0 = (y0 + deltaY).coerceIn(0f, height),
+                    )
                 } else {
-                    x1 = (x1 + deltaX).coerceIn(0f, width)
-                    y1 = (y1 + deltaY).coerceIn(0f, height)
+                    copy(
+                        x1 = (x1 + deltaX).coerceIn(0f, width),
+                        y1 = (y1 + deltaY).coerceIn(0f, height),
+                    )
                 }
             }
             2 -> {
                 // Mutate color (RGB)
                 val delta = rng.nextInt(31) - 15
                 when (rng.nextInt(3)) {
-                    0 -> r = (r + delta).coerceIn(0, 255)
-                    1 -> g = (g + delta).coerceIn(0, 255)
-                    else -> b = (b + delta).coerceIn(0, 255)
+                    0 -> copy(r = (r + delta).coerceIn(0, 255))
+                    1 -> copy(g = (g + delta).coerceIn(0, 255))
+                    else -> copy(b = (b + delta).coerceIn(0, 255))
                 }
             }
             3 -> {
                 // Mutate opacity (Alpha)
                 val delta = rng.nextInt(21) - 10
-                a = (a + delta).coerceIn(20, 230)
+                copy(a = (a + delta).coerceIn(20, 230))
             }
             4 -> {
                 // Mutate stroke thickness
                 val delta = (rng.nextFloat() - 0.5f) * 4f
-                strokeWidth = (strokeWidth + delta).coerceIn(2f, 35f)
+                copy(strokeWidth = (strokeWidth + delta).coerceIn(2f, 35f))
             }
+            else -> this
         }
     }
 

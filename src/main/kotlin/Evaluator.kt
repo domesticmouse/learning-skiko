@@ -45,7 +45,6 @@ class Evaluator(
             i += 4
         }
 
-        painting.error = totalError
         return totalError
     }
 }

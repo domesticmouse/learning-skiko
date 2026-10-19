@@ -11,17 +11,9 @@ import kotlin.random.Random
  * Represents an individual candidate artwork (a sequence of brush strokes).
  */
 data class Painting(
-    val strokes: MutableList<StrokeGene>,
-    var error: Long = Long.MAX_VALUE,
+    val strokes: List<StrokeGene>,
+    val error: Long = Long.MAX_VALUE,
 ) {
-    fun clone(): Painting {
-        val copiedStrokes = ArrayList<StrokeGene>(strokes.size)
-        for (stroke in strokes) {
-            copiedStrokes.add(stroke.copy())
-        }
-        return Painting(copiedStrokes, error)
-    }
-
     fun render(
         canvas: Canvas,
         width: Float,
@@ -48,31 +40,33 @@ data class Painting(
         width: Float,
         height: Float,
         rng: Random,
-    ) {
-        if (strokes.isEmpty()) return
+    ): Painting {
+        if (strokes.isEmpty()) return this
 
         val roll = rng.nextFloat()
+        val newStrokes = strokes.toMutableList()
         when {
             roll < 0.80f -> {
                 // Mutate 1 to 2 random strokes
                 val count = if (rng.nextBoolean()) 1 else 2
                 repeat(count) {
-                    val idx = rng.nextInt(strokes.size)
-                    strokes[idx].mutate(width, height, rng)
+                    val idx = rng.nextInt(newStrokes.size)
+                    newStrokes[idx] = newStrokes[idx].mutate(width, height, rng)
                 }
             }
             roll < 0.95f -> {
                 // Swap stroke layering order
-                val i = rng.nextInt(strokes.size)
-                val j = rng.nextInt(strokes.size)
-                Collections.swap(strokes, i, j)
+                val i = rng.nextInt(newStrokes.size)
+                val j = rng.nextInt(newStrokes.size)
+                Collections.swap(newStrokes, i, j)
             }
             else -> {
                 // Replace a stroke entirely with a new random stroke
-                val idx = rng.nextInt(strokes.size)
-                strokes[idx] = StrokeGene.random(width, height, rng)
+                val idx = rng.nextInt(newStrokes.size)
+                newStrokes[idx] = StrokeGene.random(width, height, rng)
             }
         }
+        return copy(strokes = newStrokes, error = Long.MAX_VALUE)
     }
 
     companion object {
@@ -82,7 +76,7 @@ data class Painting(
             height: Float,
             rng: Random = Random.Default,
         ): Painting {
-            val list = mutableListOf<StrokeGene>()
+            val list = ArrayList<StrokeGene>(strokeCount)
             for (i in 0 until strokeCount) {
                 list.add(StrokeGene.random(width, height, rng))
             }
