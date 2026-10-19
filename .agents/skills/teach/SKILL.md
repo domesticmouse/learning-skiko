@@ -52,13 +52,34 @@ A lesson should be **beautiful**, with clean, readable typography and layout, si
 
 The lesson should be short, and completable very quickly. Learners' working memory is very small, and we need to stay within it. But each lesson should give the user a single tangible win that they can build on. It should be directly tied to the mission, and should be in the user's zone of proximal development.
 
-If possible, open the lesson file for the user by running a CLI command.
+If possible, open the lesson file for the user by running a CLI command. In sandboxed environments where launching external GUI applications via CLI is restricted (e.g., `open` failing with error -54), provide direct clickable `file://` links in your response.
 
 Each lesson should link via HTML anchors to other lessons and reference documents.
 
 Each lesson should recommend a primary source for the user to read or watch. This should be the most high-quality, high-trust resource you found on the topic.
 
 Each lesson should contain a reminder to ask followup questions to the agent. The agent is their teacher, and can assist with anything that's unclear.
+
+## Deconstructing Existing Codebases
+
+When the user asks to turn an existing codebase or working application into a multi-part lesson series:
+
+1. **Map Architectural Layers**:
+   Deconstruct the application into progressive, incremental milestones rather than reviewing files arbitrarily:
+   - *Stage 1: Setup & Environment* (Build scripts, native dependencies, entrypoint, linting).
+   - *Stage 2: Domain & Representation* (Data classes, primitives, parameters, immutable chromosomes).
+   - *Stage 3: Computation & Objectives* (Fitness functions, algorithmic transformations, memory allocation optimization).
+   - *Stage 4: Engine & Concurrency* (Background worker threads, atomic synchronization, generational loop).
+   - *Stage 5: Presentation & Interaction* (Canvases, live telemetry HUDs, keyboard shortcuts, exports).
+
+2. **Establish Shared Course Assets Early**:
+   Before generating multiple lessons, create `./assets/lesson-style.css` and reusable widgets (e.g., `./assets/quiz-widget.js`). Every lesson must share the same typography and component design.
+
+3. **Unified Curriculum Navigation**:
+   Include a course-level sidebar navigation menu in every lesson displaying the overall curriculum hierarchy alongside intra-lesson anchors, giving the learner persistent situational awareness.
+
+4. **Interactive Intuition Preceding Code**:
+   Include an interactive in-browser simulator, visualizer, or sandbox in the lesson HTML so the user grasps the conceptual behavior before reading and modifying backend code.
 
 ## Assets
 

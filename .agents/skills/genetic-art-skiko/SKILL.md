@@ -92,10 +92,11 @@ data class Painting(
 
 ## 3. High-Performance Offscreen Fitness Evaluation
 
-To evaluate 1,000+ candidates per second:
+To evaluate 2,000–5,000+ candidates per second on the CPU:
 1. **Reuse all objects**: Allocate `Bitmap`, `Canvas`, `Paint`, and `Path` once per evaluator thread.
-2. **Flat Byte Array Sum of Squared Differences (SSD)**: Avoid `Color` object allocations in hot loops.
-3. **Pure Evaluation**: Avoid mutating candidate objects in `evaluate()`; return the score directly.
+2. **Flat Byte Array L1 Manhattan Distance**: Direct byte subtraction with `Math.abs` avoids squaring overhead and prevents integer overflow.
+3. **Signed Byte Masking**: Kotlin `Byte` is signed ($-128 \dots 127$); apply `and 0xFF` before subtracting.
+4. **Pure Evaluation**: Avoid mutating candidate objects in `evaluate()`; return the error score directly.
 
 ```kotlin
 class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
@@ -108,17 +109,17 @@ class Evaluator(val width: Int, val height: Int, val targetBytes: ByteArray) {
         painting.render(canvas, width.toFloat(), height.toFloat(), paint, path)
         val candidateBytes = bitmap.readPixels(bitmap.imageInfo) ?: return Long.MAX_VALUE
 
-        var error = 0L
-        val len = candidateBytes.size
+        var diff = 0L
+        val totalBytes = width * height * 4
         var i = 0
-        while (i < len) {
-            val db = (candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF)
-            val dg = (candidateBytes[i + 1].toInt() and 0xFF) - (targetBytes[i + 1].toInt() and 0xFF)
-            val dr = (candidateBytes[i + 2].toInt() and 0xFF) - (targetBytes[i + 2].toInt() and 0xFF)
-            error += (dr * dr) + (dg * dg) + (db * db)
-            i += 4 // BGRA / RGBA step
+        while (i < totalBytes) {
+            val db = Math.abs((candidateBytes[i].toInt() and 0xFF) - (targetBytes[i].toInt() and 0xFF))
+            val dg = Math.abs((candidateBytes[i + 1].toInt() and 0xFF) - (targetBytes[i + 1].toInt() and 0xFF))
+            val dr = Math.abs((candidateBytes[i + 2].toInt() and 0xFF) - (targetBytes[i + 2].toInt() and 0xFF))
+            diff += (db + dg + dr)
+            i += 4 // BGRA / RGBA step (skips alpha)
         }
-        return error
+        return diff
     }
 }
 ```
@@ -144,11 +145,17 @@ In image approximation, classic crossover (mating two candidate paintings) often
 
 1. **Split-Screen Layout**: Display the reference target image on the left and the evolving champion on the right using `canvas.drawImageRect`.
 2. **Thread Safety**: Pass champion snapshots between the background evolution thread and the Swing EDT using `AtomicReference<Painting>`.
-3. **Live Metrics**: Display generation counter, accepted mutation rate, % improvement, and speed (`evals/sec`).
-4. **Key Controls**:
-   * `[Space]`: Toggle pause/resume (`AtomicBoolean`).
+3. **In-Canvas Skia HUD**: Rather than mixing Swing buttons, render rounded dashboard cards directly on the canvas using `RRect` and Skia `Font`:
+   ```kotlin
+   canvas.drawRRect(RRect.makeXYWH(32f, hudY, w - 64f, 82f, 10f), cardPaint)
+   canvas.drawString("GENERATIONS", col1, hudY + 28f, labelFont, textDimPaint)
+   canvas.drawString("%,d".format(gens), col1, hudY + 54f, valueFont, textMainPaint)
+   ```
+4. **Decoupled Redraw**: Trigger `skiaLayer.needRedraw()` at the end of `onRender()` to keep the UI smooth at 60 FPS while the worker thread evolves at full speed.
+5. **Key Controls via KeyAdapter**:
+   * `[Space]`: Toggle pause/resume (`painter.togglePause()`).
    * `[R]`: Reset population.
-   * `[+]` / `[-]`: Dynamically increase/decrease stroke count.
+   * `[+]` / `[-]`: Dynamically increase/decrease stroke count (`painter.adjustStrokes(10)`).
    * `[S]`: Export snapshot to disk via `image.encodeToData(EncodedImageFormat.PNG)`.
 
 See detailed theory and fitness algorithms in:
