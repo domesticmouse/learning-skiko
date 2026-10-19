@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Learning Skiko — Genetic Art in Kotlin</title>
+  
+  <link rel="stylesheet" href="assets/lesson-style.css">
+  
+  <style>
+    .badge-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      background: #24283b;
+      border: 1px solid var(--card-border);
+      color: #c0caf5;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .primary-btn {
+      background-color: var(--accent-color);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 0.85rem 1.6rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .primary-btn:hover {
+      background-color: #693be3;
+      transform: translateY(-1px);
+    }
+
+    .curriculum-phase {
+      margin-bottom: 3rem;
+    }
+
+    .phase-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--highlight);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .lesson-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .lesson-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .lesson-card:hover {
+      border-color: var(--highlight);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-top {
+      margin-bottom: 1.25rem;
+    }
+
+    .lesson-num {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--highlight);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.35rem;
+    }
+
+    .lesson-card h3 {
+      font-size: 1.25rem;
+      color: #fff;
+      margin: 0.25rem 0 0.75rem 0;
+      line-height: 1.35;
+    }
+
+    .lesson-card p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 1rem;
+    }
+
+    .concept-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .concept-tag {
+      background: #13141f;
+      border: 1px solid var(--card-border);
+      color: #94a3b8;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .card-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--card-border);
+      padding-top: 1rem;
+    }
+
+    .step-pill {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .card-link {
+      color: var(--highlight);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: gap 0.15s ease;
+    }
+
+    .card-link:hover {
+      gap: 0.6rem;
+      color: #fff;
+    }
+
+    .cli-box {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88rem;
+      color: #c0caf5;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav id="sidebar">
+    <h2>Skiko Guide <span class="badge">CLI</span></h2>
+    <div class="course-title">Course Portal</div>
+    
+    <div class="series-nav">
+      <h3>Navigation</h3>
+      <ul>
+        <li><a href="index.html" class="active">🏠 Course Overview</a></li>
+        <li><a href="reference/skiko-genetic-art-cheatsheet.html">📑 Reference Cheatsheet</a></li>
+        <li><a href="https://github.com/domesticmouse/learning-skiko" target="_blank" rel="noopener">🐙 GitHub Repository</a></li>
+      </ul>
+    </div>
+
+    <div class="series-nav">
+      <h3>Curriculum</h3>
+      <ul>
+        <li class="nav-header">Phase 1: Foundations</li>
+        <li><a href="lessons/0001-skiko-desktop-foundations.html">1. Skiko Desktop Foundations</a></li>
+        <li><a href="lessons/0002-vector-brush-strokes.html">2. Vector Brush Strokes & Genes</a></li>
+        <li><a href="lessons/0003-offscreen-fitness-evaluation.html">3. Headless Fitness Evaluation</a></li>
+        <li><a href="lessons/0004-evolutionary-hill-climber.html">4. The Evolutionary Loop</a></li>
+        <li><a href="lessons/0005-realtime-visualization-hud.html">5. Real-Time HUD & Controls</a></li>
+        <li class="nav-header">Phase 2: Concurrency</li>
+        <li><a href="lessons/0006-multicore-island-model.html">6. Multi-Core Island Model</a></li>
+        <li><a href="lessons/0007-adaptive-annealing-pyramids.html">7. Adaptive Annealing</a></li>
+        <li class="nav-header">Phase 2: Aesthetics</li>
+        <li><a href="lessons/0008-perceptual-fitness-cielab-sobel.html">8. Perceptual Fitness</a></li>
+        <li><a href="lessons/0009-parsimony-pressure-style-constraints.html">9. Parsimony Pressure</a></li>
+        <li class="nav-header">Phase 2: Expressiveness</li>
+        <li><a href="lessons/0010-diverse-vector-primitives.html">10. Diverse Primitives</a></li>
+        <li><a href="lessons/0011-svg-export-timelapse-capture.html">11. SVG Vector Export</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main id="content">
+    <header>
+      <div class="lesson-meta">Interactive Curriculum &bull; 11 Complete Lessons</div>
+      <h1>Learning Skiko &amp; Genetic Art</h1>
+      <p class="lead">
+        A hands-on, command-line-first curriculum and reference implementation for mastering hardware-accelerated 2D graphics in Kotlin using <strong>Skiko</strong> (JetBrains' Skia bindings for Kotlin Multiplatform) and evolutionary algorithms.
+      </p>
+
+      <div class="badge-bar">
+        <span class="tag">Kotlin 2.1.0</span>
+        <span class="tag">Skiko 0.8.18</span>
+        <span class="tag">JDK 21 LTS</span>
+        <span class="tag">Command Line First</span>
+        <span class="tag">Hardware Accelerated</span>
+      </div>
+
+      <div class="hero-actions">
+        <a href="lessons/0001-skiko-desktop-foundations.html" class="primary-btn">
+          Start Lesson 1: Desktop Foundations ➔
+        </a>
+        <a href="reference/skiko-genetic-art-cheatsheet.html" class="nav-btn">
+          📑 Reference Cheatsheet
+        </a>
+        <a href="https://github.com/domesticmouse/learning-skiko" target="_blank" rel="noopener" class="nav-btn">
+          🐙 GitHub Repo
+        </a>
+      </div>
+    </header>
+
+    <!-- SECTION: COURSE PHILOSOPHY -->
+    <section>
+      <h2><span class="section-num">✦</span> Course Architecture & Philosophy</h2>
+      <p>
+        This series guides you step by step from an empty directory to a multi-core evolutionary art generator that reconstructs target images with thousands of procedural vector brush strokes:
+      </p>
+
+      <div class="card-grid">
+        <div class="card">
+          <h4>⚡ Pure Skiko &amp; Terminal Workflow</h4>
+          <p>No heavy IDEs or bloated UI toolkits. Every lesson builds and executes cleanly via standard Gradle CLI commands with native macOS, Linux, and Windows runtime resolution.</p>
+        </div>
+        <div class="card">
+          <h4>🧬 Zero-Allocation Engine</h4>
+          <p>Evaluate thousands of image candidates per second using direct headless Skia raster buffers, branchless squared-difference loops, and immutable chromosome models.</p>
+        </div>
+        <div class="card">
+          <h4>🏝️ Parallel Island Concurrency</h4>
+          <p>Scale evolutionary pressure across all CPU cores with isolated worker demes, lock-free atomic synchronizers, and asynchronous ring migration.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: PHASE 1 -->
+    <section class="curriculum-phase">
+      <span class="phase-badge">Phase 1</span>
+      <h2>Core Engine Deconstruction</h2>
+      <p>
+        Build the complete end-to-end genetic painting engine from scratch across five progressive milestones:
+      </p>
+
+      <div class="lesson-grid">
+        <!-- Lesson 1 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0001</div>
+            <h3>Skiko Desktop Foundations</h3>
+            <p>Scaffold a standalone 2D hardware-accelerated desktop canvas using Gradle CLI, native runtime resolution, SkiaLayer, and SkikoRenderDelegate.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">SkiaLayer</span>
+              <span class="concept-tag">SkikoRenderDelegate</span>
+              <span class="concept-tag">Gradle CLI</span>
+              <span class="concept-tag">Ktlint</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0001-skiko-desktop-foundations</span>
+            <a href="lessons/0001-skiko-desktop-foundations.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 2 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0002</div>
+            <h3>Vector Brush Strokes &amp; Genes</h3>
+            <p>Model digital artwork as immutable genotype chromosomes using quadratic Bézier curves, alpha transparency, and stochastic mutation operators.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">StrokeGene</span>
+              <span class="concept-tag">Painting</span>
+              <span class="concept-tag">Bézier Splines</span>
+              <span class="concept-tag">Mutations</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0002-vector-brush-strokes</span>
+            <a href="lessons/0002-vector-brush-strokes.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 3 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0003</div>
+            <h3>Headless Fitness Evaluation</h3>
+            <p>Render offscreen headless Skia bitmaps and measure pixel error at thousands of FPS using zero-allocation byte buffers and L2 sum of squared differences.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">Headless Skia</span>
+              <span class="concept-tag">L2 SSD</span>
+              <span class="concept-tag">readPixels</span>
+              <span class="concept-tag">TargetImage</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0003-offscreen-fitness-evaluation</span>
+            <a href="lessons/0003-offscreen-fitness-evaluation.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 4 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0004</div>
+            <h3>The Evolutionary Loop</h3>
+            <p>Implement the (1+1) Hill Climber optimization loop inside an asynchronous daemon thread with lock-free atomic synchronizers and neutral drift acceptance.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">(1+1) Hill Climber</span>
+              <span class="concept-tag">AtomicReference</span>
+              <span class="concept-tag">Daemon Worker</span>
+              <span class="concept-tag">Neutral Drift</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0004-evolutionary-hill-climber</span>
+            <a href="lessons/0004-evolutionary-hill-climber.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 5 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0005</div>
+            <h3>Real-Time HUD &amp; Controls</h3>
+            <p>Construct a dual-pane presentation window with a vector HUD metrics panel, interactive keyboard shortcuts, and lossless PNG export capabilities.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">Dual-Pane HUD</span>
+              <span class="concept-tag">KeyAdapter</span>
+              <span class="concept-tag">Thread Confinement</span>
+              <span class="concept-tag">PNG Encoder</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0005-realtime-visualization-hud</span>
+            <a href="lessons/0005-realtime-visualization-hud.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: PHASE 2 -->
+    <section class="curriculum-phase">
+      <span class="phase-badge">Phase 2</span>
+      <h2>Advanced Extensions &amp; Scaling</h2>
+      <p>
+        Scale the painter into a production-grade generative art engine across three specialized tracks:
+      </p>
+
+      <h3 style="color: var(--highlight); margin-top: 1.5rem;">Track 1: Algorithmic Scaling &amp; Concurrency</h3>
+      <div class="lesson-grid">
+        <!-- Lesson 6 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0006</div>
+            <h3>Multi-Core Island Model &amp; (1+λ) Strategy</h3>
+            <p>Distribute evolutionary workloads across CPU cores using isolated demes, (1+λ) batch evaluation, and asynchronous ring champion migration.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">Island Model</span>
+              <span class="concept-tag">(1+λ) Strategy</span>
+              <span class="concept-tag">Ring Migration</span>
+              <span class="concept-tag">ThreadPool</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0006-multicore-island-model</span>
+            <a href="lessons/0006-multicore-island-model.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 7 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0007</div>
+            <h3>Adaptive Annealing &amp; Pyramids</h3>
+            <p>Dynamically modulate mutation variance using Rechenberg's 1/5th success rule and accelerate convergence with coarse-to-fine Gaussian image pyramids.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">Simulated Annealing</span>
+              <span class="concept-tag">1/5th Rule</span>
+              <span class="concept-tag">Gaussian Pyramids</span>
+              <span class="concept-tag">Dynamic Jitter</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0007-adaptive-annealing-pyramids</span>
+            <a href="lessons/0007-adaptive-annealing-pyramids.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="color: var(--highlight); margin-top: 2.5rem;">Track 2: Fitness Models &amp; Perceptual Aesthetics</h3>
+      <div class="lesson-grid">
+        <!-- Lesson 8 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0008</div>
+            <h3>Perceptual Color Distances &amp; Edge Fitness</h3>
+            <p>Align optimization with human visual perception using CIELAB ΔE color metrics, 3D LUT lookup caching, and Sobel convolution saliency masks.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">CIELAB ΔE</span>
+              <span class="concept-tag">3D LUT</span>
+              <span class="concept-tag">Sobel Saliency</span>
+              <span class="concept-tag">Perceptual Vision</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0008-perceptual-fitness-cielab-sobel</span>
+            <a href="lessons/0008-perceptual-fitness-cielab-sobel.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 9 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0009</div>
+            <h3>Parsimony Pressure &amp; Style Constraints</h3>
+            <p>Prevent genetic bloat and generate painterly impressionist art using stroke penalties, area constraints, and multi-objective Pareto frontiers.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">Parsimony Pressure</span>
+              <span class="concept-tag">Bloat Control</span>
+              <span class="concept-tag">Pareto Frontiers</span>
+              <span class="concept-tag">Impressionism</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0009-parsimony-pressure-style-constraints</span>
+            <a href="lessons/0009-parsimony-pressure-style-constraints.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="color: var(--highlight); margin-top: 2.5rem;">Track 3: Chromosome Expressiveness &amp; Rendering</h3>
+      <div class="lesson-grid">
+        <!-- Lesson 10 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0010</div>
+            <h3>Diverse Vector Primitives &amp; Shaders</h3>
+            <p>Expand artistic variety beyond Béziers with tapered calligraphy paths, convex polygon meshes, and Skia hardware gradient shaders.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">Calligraphy Paths</span>
+              <span class="concept-tag">Polygon Meshes</span>
+              <span class="concept-tag">Cubic Splines</span>
+              <span class="concept-tag">Skia Shaders</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0010-diverse-vector-primitives</span>
+            <a href="lessons/0010-diverse-vector-primitives.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+
+        <!-- Lesson 11 -->
+        <div class="lesson-card">
+          <div class="card-top">
+            <div class="lesson-num">Lesson 0011</div>
+            <h3>SVG Vector Export &amp; Time-Lapse Capture</h3>
+            <p>Export evolved chromosomes to resolution-independent W3C SVG vector files, create periodic checkpoints, and stitch frame sequences into time-lapses.</p>
+            <div class="concept-tags">
+              <span class="concept-tag">W3C SVG</span>
+              <span class="concept-tag">XML Serialization</span>
+              <span class="concept-tag">Checkpoints</span>
+              <span class="concept-tag">FFmpeg Timelapse</span>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span class="step-pill">steps/0011-svg-export-timelapse-capture</span>
+            <a href="lessons/0011-svg-export-timelapse-capture.html" class="card-link">Open Lesson ➔</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: QUICKSTART -->
+    <section>
+      <h2><span class="section-num">🚀</span> Command-Line Quickstart</h2>
+      <p>
+        Every lesson corresponds to a standalone runnable Gradle project under the <code>steps/</code> directory. You can run any lesson code directly from your terminal:
+      </p>
+
+      <div class="cli-box">
+# Navigate to step 1 (Basic Skiko desktop window)
+cd steps/0001-skiko-desktop-foundations
+./gradlew run
+
+# Navigate to step 5 (Real-time genetic painter)
+cd ../0005-realtime-visualization-hud
+./gradlew run
+
+# Check Kotlin code formatting and linting
+./gradlew ktlintCheck
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <div class="lesson-nav" style="justify-content: space-between; align-items: center;">
+      <div style="font-size: 0.85rem; color: var(--text-muted);">
+        Licensed under the <a href="https://github.com/domesticmouse/learning-skiko/blob/main/LICENSE.txt" target="_blank" rel="noopener" style="color: var(--highlight);">Apache 2.0 License</a>.
+      </div>
+      <div>
+        <a href="lessons/0001-skiko-desktop-foundations.html" class="primary-btn">Begin Lesson 1 ➔</a>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

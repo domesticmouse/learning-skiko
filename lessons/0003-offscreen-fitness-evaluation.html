@@ -179,7 +179,7 @@
         </div>
       </div>
       <p>
-        In our painter engine (<a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Evaluator.kt"><code>Evaluator.kt</code></a>), we use <strong>L2 Sum of Squared Differences (SSD)</strong>: integer multiplication (<code>d * d</code>) is single-cycle on modern CPUs, branchless (unlike <code>Math.abs</code>), and strongly pressures the algorithm to eliminate glaring color mismatches first.
+        In our painter engine (<a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0003-offscreen-fitness-evaluation/src/main/kotlin/Evaluator.kt" target="_blank" rel="noopener"><code>steps/0003-offscreen-fitness-evaluation/src/main/kotlin/Evaluator.kt</code></a>), we use <strong>L2 Sum of Squared Differences (SSD)</strong>: integer multiplication (<code>d * d</code>) is single-cycle on modern CPUs, branchless (unlike <code>Math.abs</code>), and strongly pressures the algorithm to eliminate glaring color mismatches first.
       </p>
     </section>
 
@@ -218,7 +218,7 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
     <section id="evaluator-code">
       <h2><span class="section-num">4</span> The Evaluator Class Architecture</h2>
       <p>
-        Now examine <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Evaluator.kt"><code>Evaluator.kt</code></a> in your workspace:
+        Now examine <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0003-offscreen-fitness-evaluation/src/main/kotlin/Evaluator.kt" target="_blank" rel="noopener"><code>steps/0003-offscreen-fitness-evaluation/src/main/kotlin/Evaluator.kt</code></a> in your workspace:
       </p>
       <div class="code-container">
         <div class="code-header">
@@ -309,7 +309,7 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
     <section id="target-image">
       <h2><span class="section-num">6</span> TargetImage Loading & Rescaling</h2>
       <p>
-        In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/TargetImage.kt"><code>TargetImage.kt</code></a>, external PNG/JPEG files are loaded and rescaled to the simulation dimension (typically \(256 \times 256\)). If no file path is supplied in CLI arguments, it falls back to a procedurally generated geometric test target.
+        In <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0003-offscreen-fitness-evaluation/src/main/kotlin/TargetImage.kt" target="_blank" rel="noopener"><code>steps/0003-offscreen-fitness-evaluation/src/main/kotlin/TargetImage.kt</code></a>, external PNG/JPEG files are loaded and rescaled to the simulation dimension (typically \(256 \times 256\)). If no file path is supplied in CLI arguments, it falls back to a procedurally generated geometric test target.
       </p>
       <div class="callout tip">
         <div class="callout-title">💡 Why 256&times;256 Resolution?</div>

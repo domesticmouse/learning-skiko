@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found — Learning Skiko</title>
+  <link rel="stylesheet" href="assets/lesson-style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 2rem;
+    }
+    .not-found-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 3rem;
+      max-width: 540px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+    .status-code {
+      font-size: 5rem;
+      font-weight: 800;
+      color: var(--highlight);
+      line-height: 1;
+      margin-bottom: 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+    p {
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="not-found-card">
+    <div class="status-code">404</div>
+    <h1>Lesson Not Found</h1>
+    <p>The lesson or page you are looking for does not exist or may have moved. You can return to the curriculum portal to browse all available lessons.</p>
+    <a href="index.html" class="nav-btn" style="background-color: var(--accent-color); border-color: var(--accent-color);">
+      ← Return to Course Portal
+    </a>
+  </div>
+</body>
+</html>

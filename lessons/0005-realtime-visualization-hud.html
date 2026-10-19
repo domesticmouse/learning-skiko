@@ -174,7 +174,7 @@
     <section id="dual-pane">
       <h2><span class="section-num">1</span> Dual-Pane Side-by-Side Presentation</h2>
       <p>
-        In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>Main.kt</code></a>, the <code>SkikoRenderDelegate.onRender()</code> method draws two primary viewports:
+        In <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0005-realtime-visualization-hud/src/main/kotlin/Main.kt" target="_blank" rel="noopener"><code>steps/0005-realtime-visualization-hud/src/main/kotlin/Main.kt</code></a>, the <code>SkikoRenderDelegate.onRender()</code> method draws two primary viewports:
       </p>
       <ul>
         <li><strong>Left Viewport</strong>: The immutable target image, rendered via <code>canvas.drawImageRect(target.image, targetRect)</code>.</li>
@@ -276,7 +276,7 @@ canvas.drawString("%,d evals/s".format(evalsSec), col4, hudY + 54f, headerFont, 
 
       <div class="callout warning">
         <div class="callout-title">⚠️ Thread-Confinement Rule for Skia Bitmaps</div>
-        <p>Notice that in <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>Main.kt</code></a>, the UI render delegate allocates its own <code>displayBitmap</code> and <code>displayCanvas</code> (and key <code>[S]</code> allocates a dedicated <code>saveBitmap</code>) rather than sharing the worker thread's <code>Evaluator</code> buffers. Because Skia's <code>Bitmap</code>, <code>Canvas</code>, <code>Paint</code>, and <code>Path</code> are stateful and not thread-safe, <strong>every thread must own its own isolated rendering buffers</strong>—a critical rule we will rely on when scaling to multi-core worker pools in Lesson 6.</p>
+        <p>Notice that in <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0005-realtime-visualization-hud/src/main/kotlin/Main.kt" target="_blank" rel="noopener"><code>steps/0005-realtime-visualization-hud/src/main/kotlin/Main.kt</code></a>, the UI render delegate allocates its own <code>displayBitmap</code> and <code>displayCanvas</code> (and key <code>[S]</code> allocates a dedicated <code>saveBitmap</code>) rather than sharing the worker thread's <code>Evaluator</code> buffers. Because Skia's <code>Bitmap</code>, <code>Canvas</code>, <code>Paint</code>, and <code>Path</code> are stateful and not thread-safe, <strong>every thread must own its own isolated rendering buffers</strong>—a critical rule we will rely on when scaling to multi-core worker pools in Lesson 6.</p>
       </div>
     </section>
 
@@ -284,7 +284,7 @@ canvas.drawString("%,d evals/s".format(evalsSec), col4, hudY + 54f, headerFont, 
     <section id="png-export">
       <h2><span class="section-num">4</span> Encoding & Saving Lossless PNGs</h2>
       <p>
-        Skia includes native encoders for PNG, JPEG, and WebP. In <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Main.kt"><code>Main.kt</code></a>, exporting the painting requires only 4 lines of code:
+        Skia includes native encoders for PNG, JPEG, and WebP. In <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0005-realtime-visualization-hud/src/main/kotlin/Main.kt" target="_blank" rel="noopener"><code>steps/0005-realtime-visualization-hud/src/main/kotlin/Main.kt</code></a>, exporting the painting requires only 4 lines of code:
       </p>
       <div class="code-container">
         <div class="code-header">

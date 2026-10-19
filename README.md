@@ -95,17 +95,20 @@ cd ../0005-realtime-visualization-hud
 
 ### Viewing Lessons
 
-The lessons are interactive HTML pages equipped with visual aids, architectural diagrams, and self-check quizzes. Open any lesson directly in your browser:
+The interactive lessons can be viewed online on GitHub Pages or opened locally in your web browser:
+
+- **Online Course Portal**: [https://domesticmouse.github.io/learning-skiko/](https://domesticmouse.github.io/learning-skiko/)
+- **Quick Reference Cheatsheet**: [https://domesticmouse.github.io/learning-skiko/reference/skiko-genetic-art-cheatsheet.html](https://domesticmouse.github.io/learning-skiko/reference/skiko-genetic-art-cheatsheet.html)
+
+To browse offline locally:
 
 ```bash
-# macOS
+# Open the course portal
+open index.html
+
+# Or open a specific lesson
 open lessons/0001-skiko-desktop-foundations.html
-
-# Linux
-xdg-open lessons/0001-skiko-desktop-foundations.html
 ```
-
-You can also view the quick reference cheatsheet at [`reference/skiko-genetic-art-cheatsheet.html`](reference/skiko-genetic-art-cheatsheet.html).
 
 ---
 

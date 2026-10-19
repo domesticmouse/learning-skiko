@@ -224,7 +224,7 @@ canvas.drawPath(path, paint)</code></pre>
     <section id="strokegene-code">
       <h2><span class="section-num">3</span> The StrokeGene Class</h2>
       <p>
-        Let's inspect <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/StrokeGene.kt"><code>StrokeGene.kt</code></a> in your project. Each gene captures geometry, stroke width, and 32-bit RGBA color:
+        Let's inspect <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0002-vector-brush-strokes/src/main/kotlin/StrokeGene.kt" target="_blank" rel="noopener"><code>steps/0002-vector-brush-strokes/src/main/kotlin/StrokeGene.kt</code></a> in your project. Each gene captures geometry, stroke width, and 32-bit RGBA color:
       </p>
       <div class="code-container">
         <div class="code-header">
@@ -279,7 +279,7 @@ data class StrokeGene(
     <section id="painting-chromosome">
       <h2><span class="section-num">4</span> The Painting Chromosome</h2>
       <p>
-        An individual artwork candidate is represented in <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Painting.kt"><code>Painting.kt</code></a> as a list of strokes:
+        An individual artwork candidate is represented in <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0002-vector-brush-strokes/src/main/kotlin/Painting.kt" target="_blank" rel="noopener"><code>steps/0002-vector-brush-strokes/src/main/kotlin/Painting.kt</code></a> as a list of strokes:
       </p>
       <div class="code-container">
         <div class="code-header">
@@ -348,7 +348,7 @@ data class StrokeGene(
     <section id="mutation-operators">
       <h2><span class="section-num">6</span> Stochastic Mutation Operators</h2>
       <p>
-        How do we create variation without destroying established structure? Mutation happens at two hierarchical levels: <strong>chromosome-level</strong> (<a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/Painting.kt"><code>Painting.mutate()</code></a>) and <strong>gene-level</strong> (<a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/StrokeGene.kt"><code>StrokeGene.mutate()</code></a>).
+        How do we create variation without destroying established structure? Mutation happens at two hierarchical levels: <strong>chromosome-level</strong> (<a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0002-vector-brush-strokes/src/main/kotlin/Painting.kt" target="_blank" rel="noopener"><code>Painting.mutate()</code></a>) and <strong>gene-level</strong> (<a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0002-vector-brush-strokes/src/main/kotlin/StrokeGene.kt" target="_blank" rel="noopener"><code>StrokeGene.mutate()</code></a>).
       </p>
 
       <h3>1. Chromosome-Level Mutation (<code>Painting.kt</code>)</h3>
@@ -396,7 +396,7 @@ data class StrokeGene(
 
       <h3>2. Gene-Level Perturbation &amp; Clamping (<code>StrokeGene.kt</code>)</h3>
       <p>
-        Inside <a href="file:///Users/brett/tmp/kotlin-experiment/src/main/kotlin/StrokeGene.kt"><code>StrokeGene.mutate()</code></a>, we pick <strong>one</strong> of five attributes to nudge slightly, using Kotlin's <code>copy()</code> and <code>coerceIn()</code> so strokes never drift off-canvas or overflow 8-bit color channels:
+        Inside <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0002-vector-brush-strokes/src/main/kotlin/StrokeGene.kt" target="_blank" rel="noopener"><code>StrokeGene.mutate()</code></a>, we pick <strong>one</strong> of five attributes to nudge slightly, using Kotlin's <code>copy()</code> and <code>coerceIn()</code> so strokes never drift off-canvas or overflow 8-bit color channels:
       </p>
       <div class="code-container">
         <div class="code-header">
