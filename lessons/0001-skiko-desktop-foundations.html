@@ -453,38 +453,115 @@ ktlint {
       </ul>
 
       <div class="callout tip">
-        <div class="callout-title">💡 From Minimal Render Loop to Genetic Painter</div>
-        <p>The starter code below isolates the core <code>JFrame</code> + <code>SkiaLayer</code> + <code>SkikoRenderDelegate</code> lifecycle so you can see every moving part on a single screen. In our workspace's <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0001-skiko-desktop-foundations/src/main/kotlin/Main.kt" target="_blank" rel="noopener"><code>steps/0001-skiko-desktop-foundations/src/main/kotlin/Main.kt</code></a>, this exact same <code>onRender</code> skeleton hosts the dual-pane Genetic Algorithm Painter and live telemetry HUD (which we will deconstruct step by step through Lessons 2–5).</p>
+        <div class="callout-title">💡 Modular Design for Testability & Headless Verification</div>
+        <p>By encapsulating the drawing pipeline inside <code>DemoRenderDelegate</code> rather than an anonymous inline object, we can test our Skia rendering logic headlessly without opening an OS window! In our workspace's <a href="https://github.com/domesticmouse/learning-skiko/blob/main/steps/0001-skiko-desktop-foundations/src/main/kotlin/Main.kt" target="_blank" rel="noopener"><code>steps/0001-skiko-desktop-foundations/src/main/kotlin/Main.kt</code></a>, this delegate pattern also supports headless CI smoke tests via <code>--headless</code>.</p>
       </div>
 
       <div class="code-container">
         <div class="code-header">
-          <span>Minimal Starter: Main.kt</span>
+          <span>src/main/kotlin/Main.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">import org.jetbrains.skiko.SkiaLayer
-import org.jetbrains.skiko.SkikoRenderDelegate
-import org.jetbrains.skia.Canvas
-import org.jetbrains.skia.Color
-import org.jetbrains.skia.Paint
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Font
-import org.jetbrains.skia.Typeface
+import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
+import org.jetbrains.skia.Surface
+import org.jetbrains.skiko.SkiaLayer
+import org.jetbrains.skiko.SkikoRenderDelegate
 import java.awt.Dimension
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionAdapter
+import java.util.Locale
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 import javax.swing.WindowConstants
 import kotlin.math.sin
 
-fun main() {
+class DemoRenderDelegate(
+    val getMousePos: () -> Pair&lt;Float, Float&gt; = { 400f to 300f },
+    val onFrameRendered: (() -&gt; Unit)? = null,
+    val getScale: () -> Float = { 1.0f },
+) : SkikoRenderDelegate {
+    val bgPaint = Paint().apply { color = 0xFF1E1E2E.toInt() }
+    val circlePaint =
+        Paint().apply {
+            color = 0xFF89B4FA.toInt()
+            isAntiAlias = true
+        }
+    val glowPaint =
+        Paint().apply {
+            color = 0x55F38BA8.toInt()
+            isAntiAlias = true
+        }
+    val textPaint =
+        Paint().apply {
+            color = 0xFFCDD6F4.toInt()
+            isAntiAlias = true
+        }
+    val titleFont = Font().apply { size = 24f }
+    val subFont = Font().apply { size = 14f }
+
+    override fun onRender(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        nanoTime: Long,
+    ) {
+        // Canonical HiDPI scaling: scale Skia Canvas to Swing logical coordinates
+        val scale = getScale()
+        canvas.save()
+        canvas.scale(scale, scale)
+        val logicalW = width / scale
+        val logicalH = height / scale
+
+        // Clear background
+        canvas.drawRect(Rect.makeWH(logicalW, logicalH), bgPaint)
+
+        // Compute smooth elapsed time animation
+        val seconds = nanoTime / 1_000_000_000.0
+        val pulse = (sin(seconds * 3.0).toFloat() + 1f) * 15f + 40f
+
+        val (mouseX, mouseY) = getMousePos()
+
+        // Draw outer glow and main interactive follower circle
+        canvas.drawCircle(mouseX, mouseY, pulse + 20f, glowPaint)
+        canvas.drawCircle(mouseX, mouseY, pulse, circlePaint)
+
+        // Draw high-DPI crisp vector text
+        canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, titleFont, textPaint)
+        canvas.drawString("Move your mouse around to interact with the hardware canvas.", 50f, 105f, subFont, textPaint)
+        canvas.drawString(
+            "Resolution: ${width}x${height}px (Scale: ${scale}x) | Time: ${String.format(Locale.US, "%.1f", seconds)}s",
+            50f,
+            logicalH - 30f,
+            subFont,
+            textPaint,
+        )
+
+        canvas.restore()
+        onFrameRendered?.invoke()
+    }
+}
+
+fun main(args: Array&lt;String&gt;) {
+    // Headless smoke test verification mode (used in CI & automated testing)
+    if (args.contains("--headless")) {
+        println("Running headless smoke test verification...")
+        val surface = Surface.makeRasterN32Premul(800, 600)
+        val delegate = DemoRenderDelegate()
+        delegate.onRender(surface.canvas, 800, 600, System.nanoTime())
+        println("Render verification successful: drawn 800x600 frame to Skia surface.")
+        return
+    }
+
     // 1. Swing UI creation must always be scheduled on the Event Dispatch Thread (EDT)
     SwingUtilities.invokeLater {
-        val window = JFrame("Kotlin Desktop with Skiko").apply {
-            defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
-            preferredSize = Dimension(800, 600)
-        }
+        val window =
+            JFrame("Kotlin Desktop with Skiko").apply {
+                defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
+                preferredSize = Dimension(800, 600)
+            }
 
         // Coordinates for interactive cursor tracking
         var mouseX = 400f
@@ -494,70 +571,30 @@ fun main() {
         val skiaLayer = SkiaLayer()
 
         // 3. Attach our custom render delegate
-        skiaLayer.renderDelegate = object : SkikoRenderDelegate {
-            // Allocate Paints and Fonts once outside the loop for high performance
-            val bgPaint = Paint().apply { color = 0xFF1E1E2E.toInt() }
-            val circlePaint = Paint().apply {
-                color = 0xFF89B4FA.toInt()
-                isAntiAlias = true
-            }
-            val glowPaint = Paint().apply {
-                color = 0x55F38BA8.toInt()
-                isAntiAlias = true
-            }
-            val textPaint = Paint().apply {
-                color = 0xFFCDD6F4.toInt()
-                isAntiAlias = true
-            }
-            val titleFont = Font().apply { size = 24f }
-            val subFont = Font().apply { size = 14f }
-
-            override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
-                // Canonical HiDPI scaling: scale Skia Canvas to Swing logical coordinates
-                val scale = skiaLayer.contentScale
-                canvas.save()
-                canvas.scale(scale, scale)
-                val logicalW = width / scale
-                val logicalH = height / scale
-
-                // Clear the background
-                canvas.drawRect(Rect.makeWH(logicalW, logicalH), bgPaint)
-
-                // Compute smooth elapsed time animation
-                val seconds = nanoTime / 1_000_000_000.0
-                val pulse = (sin(seconds * 3.0).toFloat() + 1f) * 15f + 40f
-
-                // Draw outer glow and main interactive follower circle
-                canvas.drawCircle(mouseX, mouseY, pulse + 20f, glowPaint)
-                canvas.drawCircle(mouseX, mouseY, pulse, circlePaint)
-
-                // Draw high-DPI crisp vector text
-                canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, titleFont, textPaint)
-                canvas.drawString("Move your mouse around to interact with the hardware canvas.", 50f, 105f, subFont, textPaint)
-                canvas.drawString("Resolution: ${width}x${height}px (Scale: ${scale}x) | Time: ${String.format("%.1f", seconds)}s", 50f, logicalH - 30f, subFont, textPaint)
-
-                canvas.restore()
-                // Request continuous redrawing for 60fps/120fps animation
-                skiaLayer.needRedraw()
-            }
-        }
+        val delegate =
+            DemoRenderDelegate(
+                getMousePos = { mouseX to mouseY },
+                onFrameRendered = { skiaLayer.needRedraw() },
+                getScale = { skiaLayer.contentScale },
+            )
+        skiaLayer.renderDelegate = delegate
 
         // 4. Listen to mouse motion events
-        // Since canvas.scale(scale, scale) aligns Skia with Swing logical points,
-        // e.x and e.y map 1:1 directly to the canvas without manual coordinate multiplication!
-        skiaLayer.addMouseMotionListener(object : MouseMotionAdapter() {
-            override fun mouseMoved(e: MouseEvent) {
-                mouseX = e.x.toFloat()
-                mouseY = e.y.toFloat()
-                skiaLayer.needRedraw()
-            }
+        skiaLayer.addMouseMotionListener(
+            object : MouseMotionAdapter() {
+                override fun mouseMoved(e: MouseEvent) {
+                    mouseX = e.x.toFloat()
+                    mouseY = e.y.toFloat()
+                    skiaLayer.needRedraw()
+                }
 
-            override fun mouseDragged(e: MouseEvent) {
-                mouseX = e.x.toFloat()
-                mouseY = e.y.toFloat()
-                skiaLayer.needRedraw()
-            }
-        })
+                override fun mouseDragged(e: MouseEvent) {
+                    mouseX = e.x.toFloat()
+                    mouseY = e.y.toFloat()
+                    skiaLayer.needRedraw()
+                }
+            },
+        )
 
         // 5. Mount the SkiaLayer into the JFrame window
         skiaLayer.attachTo(window.contentPane)

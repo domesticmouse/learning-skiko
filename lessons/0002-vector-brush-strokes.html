@@ -237,6 +237,7 @@ import org.jetbrains.skia.Paint
 import org.jetbrains.skia.PaintMode
 import org.jetbrains.skia.PaintStrokeCap
 import org.jetbrains.skia.Path
+import kotlin.random.Random
 
 data class StrokeGene(
     val x0: Float,
@@ -267,6 +268,37 @@ data class StrokeGene(
         path.quadTo(xc, yc, x1, y1)
         canvas.drawPath(path, paint)
     }
+
+    companion object {
+        fun random(
+            width: Float,
+            height: Float,
+            rng: Random = Random.Default,
+        ): StrokeGene {
+            val startX = rng.nextFloat() * width
+            val startY = rng.nextFloat() * height
+            val length = 20f + rng.nextFloat() * 60f
+            val angle = rng.nextFloat() * (Math.PI * 2.0).toFloat()
+            val endX = (startX + kotlin.math.cos(angle) * length).coerceIn(0f, width)
+            val endY = (startY + kotlin.math.sin(angle) * length).coerceIn(0f, height)
+            val ctrlX = ((startX + endX) / 2f + (rng.nextFloat() - 0.5f) * 40f).coerceIn(0f, width)
+            val ctrlY = ((startY + endY) / 2f + (rng.nextFloat() - 0.5f) * 40f).coerceIn(0f, height)
+
+            return StrokeGene(
+                x0 = startX,
+                y0 = startY,
+                xc = ctrlX,
+                yc = ctrlY,
+                x1 = endX,
+                y1 = endY,
+                strokeWidth = 4f + rng.nextFloat() * 16f,
+                r = rng.nextInt(256),
+                g = rng.nextInt(256),
+                b = rng.nextInt(256),
+                a = 40 + rng.nextInt(120),
+            )
+        }
+    }
 }</code></pre>
       </div>
       <div class="callout">
@@ -286,8 +318,17 @@ data class StrokeGene(
           <span>src/main/kotlin/Painting.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">data class Painting(
-    val strokes: List<StrokeGene>,
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.PaintMode
+import org.jetbrains.skia.Path
+import org.jetbrains.skia.Rect
+import java.util.Collections
+import kotlin.random.Random
+
+data class Painting(
+    val strokes: List&lt;StrokeGene&gt;,
     val error: Long = Long.MAX_VALUE,
 ) {
     fun render(
@@ -306,6 +347,21 @@ data class StrokeGene(
         // 2. Draw brush strokes in sequential order
         for (stroke in strokes) {
             stroke.render(canvas, paint, path)
+        }
+    }
+
+    companion object {
+        fun createRandom(
+            strokeCount: Int,
+            width: Float,
+            height: Float,
+            rng: Random = Random.Default,
+        ): Painting {
+            val list = ArrayList&lt;StrokeGene&gt;(strokeCount)
+            for (i in 0 until strokeCount) {
+                list.add(StrokeGene.random(width, height, rng))
+            }
+            return Painting(list)
         }
     }
 }</code></pre>

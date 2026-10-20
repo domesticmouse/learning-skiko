@@ -225,7 +225,13 @@ val pixelBytes: ByteArray? = bitmap.readPixels(bitmap.imageInfo)</code></pre>
           <span>src/main/kotlin/Evaluator.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">class Evaluator(
+        <pre><code class="language-kotlin">import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.Color
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Path
+
+class Evaluator(
     val width: Int,
     val height: Int,
     val targetBytes: ByteArray,

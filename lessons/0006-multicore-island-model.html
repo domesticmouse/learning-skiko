@@ -397,28 +397,31 @@
           <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
         </div>
         <pre><code class="language-kotlin">import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicReferenceArray
 import kotlin.random.Random
 
 class IslandCoordinator(
-    val numIslands: Int = Runtime.getRuntime().availableProcessors(),
+    val numIslands: Int = Runtime.getRuntime().availableProcessors().coerceIn(2, 8),
     val target: TargetImage,
-    val strokeCount: Int = 150,
-    val migrationInterval: Long = 2000L
+    val strokeCount: Int = 120,
+    val migrationInterval: Long = 100L,
 ) {
-    // Thread pool with one daemon worker per CPU core
-    private val pool = Executors.newFixedThreadPool(numIslands) { runnable ->
-        Thread(runnable).apply { isDaemon = true }
-    }
+    private val pool =
+        Executors.newFixedThreadPool(numIslands) { runnable -&gt;
+            Thread(runnable).apply { isDaemon = true }
+        }
 
-    // Migration inboxes: each island has a lock-free slot for incoming champions
     private val migrationInboxes = AtomicReferenceArray&lt;Painting&gt;(numIslands)
-
-    // Global best champion exposed to the Skiko render thread
     val globalChampion = AtomicReference&lt;Painting&gt;()
+    val totalGenerations = AtomicLong(0)
+    val acceptedMutations = AtomicLong(0)
+    val isRunning = AtomicBoolean(false)
 
     fun start() {
+        if (isRunning.getAndSet(true)) return
         for (islandId in 0 until numIslands) {
             pool.submit {
                 runIslandLoop(islandId)
@@ -426,8 +429,12 @@ class IslandCoordinator(
         }
     }
 
+    fun stop() {
+        isRunning.set(false)
+        pool.shutdownNow()
+    }
+
     private fun runIslandLoop(id: Int) {
-        // Each island owns its private Evaluator (and offscreen Skia Bitmap)
         val evaluator = Evaluator(target.width, target.height, target.pixelBytes)
         val rng = Random(System.nanoTime() + id * 10_000L)
         val w = target.width.toFloat()
@@ -435,16 +442,17 @@ class IslandCoordinator(
 
         val initial = Painting.createRandom(strokeCount, w, h, rng)
         var localBest = initial.copy(error = evaluator.evaluate(initial))
-        globalChampion.accumulateAndGet(localBest) { prev, next ->
+        globalChampion.accumulateAndGet(localBest) { prev, next -&gt;
             if (prev == null || next.error &lt; prev.error) next else prev
         }
 
         var generation = 0L
 
-        while (!Thread.currentThread().isInterrupted) {
+        while (isRunning.get() &amp;&amp; !Thread.currentThread().isInterrupted) {
             generation++
+            totalGenerations.incrementAndGet()
 
-            // 1. Check if our ring neighbor deposited a migrant champion in our inbox
+            // 1. Check if ring neighbor deposited a migrant champion
             val migrant = migrationInboxes.getAndSet(id, null)
             if (migrant != null &amp;&amp; migrant.error &lt; localBest.error) {
                 localBest = migrant
@@ -456,14 +464,14 @@ class IslandCoordinator(
 
             if (candidateError &lt;= localBest.error) {
                 localBest = mutated.copy(error = candidateError)
+                acceptedMutations.incrementAndGet()
 
-                // Atomically publish to globalChampion without re-evaluating on the CPU
-                globalChampion.accumulateAndGet(localBest) { prev, next ->
+                globalChampion.accumulateAndGet(localBest) { prev, next -&gt;
                     if (prev == null || next.error &lt; prev.error) next else prev
                 }
             }
 
-            // 3. Periodic migration: send champion to next island in ring topology
+            // 3. Periodic migration
             if (generation % migrationInterval == 0L) {
                 val nextIsland = (id + 1) % numIslands
                 migrationInboxes.set(nextIsland, localBest)
