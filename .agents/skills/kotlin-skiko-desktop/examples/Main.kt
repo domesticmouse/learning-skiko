@@ -60,9 +60,10 @@ fun main() {
                     val seconds = nanoTime / 1_000_000_000.0
                     val pulse = (sin(seconds * 3.0).toFloat() + 1f) * 15f + 40f
 
-                    // Draw pulsing follower circle
-                    canvas.drawCircle(mouseX, mouseY, pulse + 20f, glowPaint)
-                    canvas.drawCircle(mouseX, mouseY, pulse, circlePaint)
+                    // Draw pulsing follower circle (scaled to physical pixels)
+                    val scale = skiaLayer.contentScale
+                    canvas.drawCircle(mouseX * scale, mouseY * scale, pulse + 20f, glowPaint)
+                    canvas.drawCircle(mouseX * scale, mouseY * scale, pulse, circlePaint)
 
                     // Draw crisp vector text
                     canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, font, textPaint)
@@ -78,6 +79,12 @@ fun main() {
         skiaLayer.addMouseMotionListener(
             object : MouseMotionAdapter() {
                 override fun mouseMoved(e: MouseEvent) {
+                    mouseX = e.x.toFloat()
+                    mouseY = e.y.toFloat()
+                    skiaLayer.needRedraw()
+                }
+
+                override fun mouseDragged(e: MouseEvent) {
                     mouseX = e.x.toFloat()
                     mouseY = e.y.toFloat()
                     skiaLayer.needRedraw()

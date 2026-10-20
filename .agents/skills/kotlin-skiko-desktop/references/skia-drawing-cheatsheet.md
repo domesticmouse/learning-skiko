@@ -114,12 +114,36 @@ canvas.drawString("Hello Skiko!", 50f, 100f, font, fillPaint)
 
 ## 6. High-DPI (Retina) Scaling
 
-Skiko handles hardware scaling via `skiaLayer.contentScale`:
+Skiko renders directly to a physical pixel backing buffer, exposing the hardware display multiplier via `skiaLayer.contentScale`:
 ```kotlin
-val scale = skiaLayer.contentScale // e.g. 2.0 on Retina
+val scale = skiaLayer.contentScale // e.g. 2.0 on macOS Retina, 1.0 on standard DPI
 ```
-- `width` and `height` received in `onRender(canvas, width, height, nanoTime)` are physical device pixels.
-- Mouse events in Swing `MouseEvent` report logical points. Multiply by `skiaLayer.contentScale` if you need exact physical pixel coordinates.
+- `width` and `height` received in `onRender(canvas, width, height, nanoTime)` are **physical device pixels** (e.g. $1600 \times 1200$ for an $800 \times 600$ window at $2\times$ scale).
+- Mouse events in Swing `MouseEvent` report in **logical points** ($[0..800]$ and $[0..600]$).
+
+### Pattern A: Scale Mouse Events to Physical Canvas Coordinates
+```kotlin
+skiaLayer.addMouseMotionListener(object : MouseMotionAdapter() {
+    override fun mouseMoved(e: MouseEvent) {
+        val scale = skiaLayer.contentScale
+        physicalMouseX = e.x.toFloat() * scale
+        physicalMouseY = e.y.toFloat() * scale
+        skiaLayer.needRedraw()
+    }
+})
+```
+
+### Pattern B: Pre-Scale Canvas to Work in Logical Points
+```kotlin
+override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
+    val scale = skiaLayer.contentScale
+    canvas.save()
+    canvas.scale(scale, scale)
+    // Draw all shapes, text, and mouse interactions in logical points (0..800, 0..600)
+    canvas.drawCircle(logicalMouseX, logicalMouseY, radius, circlePaint)
+    canvas.restore()
+}
+```
 
 ---
 

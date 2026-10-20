@@ -94,7 +94,7 @@ fun main(args: Array<String>) {
         val skiaLayer = SkiaLayer()
         val delegate =
             DemoRenderDelegate(
-                getMousePos = { mouseX to mouseY },
+                getMousePos = { (mouseX * skiaLayer.contentScale) to (mouseY * skiaLayer.contentScale) },
                 onFrameRendered = { skiaLayer.needRedraw() },
             )
         skiaLayer.renderDelegate = delegate
@@ -102,6 +102,12 @@ fun main(args: Array<String>) {
         skiaLayer.addMouseMotionListener(
             object : MouseMotionAdapter() {
                 override fun mouseMoved(e: MouseEvent) {
+                    mouseX = e.x.toFloat()
+                    mouseY = e.y.toFloat()
+                    skiaLayer.needRedraw()
+                }
+
+                override fun mouseDragged(e: MouseEvent) {
                     mouseX = e.x.toFloat()
                     mouseY = e.y.toFloat()
                     skiaLayer.needRedraw()
