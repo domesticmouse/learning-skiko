@@ -4,6 +4,8 @@ import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Path
+import org.jetbrains.skia.Surface
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -48,5 +50,45 @@ class HudControlsTest {
         val hudString =
             "GEN: ${painter.generations.get()} | ACC: ${painter.acceptedMutations.get()} | EPS: ${painter.currentEvalsPerSec.get()}"
         assertEquals("GEN: 12345 | ACC: 890 | EPS: 1500", hudString)
+    }
+
+    @Test
+    fun testRenderAndCaptureScreenshot() {
+        val target = TargetImage.loadOrGenerate(null, 256, 256)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 80)
+
+        painter.start()
+        val start = System.currentTimeMillis()
+        while (painter.generations.get() < 300L && System.currentTimeMillis() - start < 1500L) {
+            Thread.sleep(20)
+        }
+        painter.stop()
+
+        val windowW = 960
+        val windowH = 680
+        val surface = Surface.makeRasterN32Premul(windowW, windowH)
+        val delegate = HudRenderDelegate(target, painter)
+
+        delegate.onRender(surface.canvas, windowW, windowH, 1_000_000_000L)
+
+        val image = surface.makeImageSnapshot()
+        val data = image.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data, "PNG data should not be null")
+        assertTrue(data.bytes.isNotEmpty(), "PNG bytes must not be empty")
+
+        saveScreenshot(data.bytes, "step-0005-realtime-visualization-hud.png")
+    }
+
+    private fun saveScreenshot(
+        bytes: ByteArray,
+        fileName: String,
+    ) {
+        val localDir = File("build/reports/screenshots").apply { mkdirs() }
+        File(localDir, fileName).writeBytes(bytes)
+
+        val topLevelDir = File("../../artifacts/screenshots")
+        if (topLevelDir.exists() || topLevelDir.mkdirs()) {
+            File(topLevelDir, fileName).writeBytes(bytes)
+        }
     }
 }

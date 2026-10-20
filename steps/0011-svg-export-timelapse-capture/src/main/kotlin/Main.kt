@@ -21,7 +21,7 @@ import javax.swing.WindowConstants
 import kotlin.math.max
 
 fun main(args: Array<String>) {
-    val targetPath = args.firstOrNull()
+    val targetPath = args.firstOrNull { !it.startsWith("--") }
 
     println("==================================================")
     println(" Genetic Algorithm: Brush Stroke Painter (Skiko) ")
@@ -35,30 +35,6 @@ fun main(args: Array<String>) {
 
     val target = TargetImage.loadOrGenerate(targetPath, simWidth = 256, simHeight = 256)
     val painter = GeneticPainter(target = target, initialStrokeCount = 120)
-
-    if (args.contains("--headless")) {
-        println("Running Step 5 headless HUD & controls verification...")
-        painter.start()
-        val start = System.currentTimeMillis()
-        while (painter.generations.get() < 500L && System.currentTimeMillis() - start < 1500L) {
-            Thread.sleep(50)
-        }
-        painter.stop()
-        println("Evaluated ${painter.generations.get()} generations. Error improved to ${painter.getBestPainting().error}.")
-
-        // Test saving snapshot to PNG
-        val saveBitmap = Bitmap().apply { allocN32Pixels(target.width, target.height) }
-        val saveCanvas = Canvas(saveBitmap)
-        painter.getBestPainting().render(saveCanvas, target.width.toFloat(), target.height.toFloat(), Paint(), Path())
-        val data = Image.makeFromBitmap(saveBitmap).encodeToData(EncodedImageFormat.PNG)
-        if (data != null) {
-            val testFile = File("build/test-headless-export.png")
-            testFile.parentFile?.mkdirs()
-            testFile.writeBytes(data.bytes)
-            println("PNG export verified: ${testFile.absolutePath} (${testFile.length()} bytes)")
-        }
-        return
-    }
 
     painter.start()
 

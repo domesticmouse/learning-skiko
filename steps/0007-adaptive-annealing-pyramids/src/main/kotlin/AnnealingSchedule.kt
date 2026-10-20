@@ -7,7 +7,8 @@ class AnnealingSchedule(
 ) {
     private var rollingAccepted = 0
     private var rollingEvaluated = 0
-    private var adaptiveGain: Float = 1.0f
+    var adaptiveGain: Float = 1.0f
+        private set
 
     var currentSigma: Float = initialSigma
         private set

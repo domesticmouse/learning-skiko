@@ -17,6 +17,7 @@ class IslandCoordinator(
         }
 
     private val migrationInboxes = AtomicReferenceArray<Painting>(numIslands)
+    private val islandChampions = AtomicReferenceArray<Painting>(numIslands)
     val globalChampion = AtomicReference<Painting>()
     val totalGenerations = AtomicLong(0)
     val acceptedMutations = AtomicLong(0)
@@ -36,6 +37,8 @@ class IslandCoordinator(
         pool.shutdownNow()
     }
 
+    fun getIslandChampion(id: Int): Painting? = islandChampions.get(id)
+
     private fun runIslandLoop(id: Int) {
         val evaluator = Evaluator(target.width, target.height, target.pixelBytes)
         val rng = Random(System.nanoTime() + id * 10_000L)
@@ -44,6 +47,7 @@ class IslandCoordinator(
 
         val initial = Painting.createRandom(strokeCount, w, h, rng)
         var localBest = initial.copy(error = evaluator.evaluate(initial))
+        islandChampions.set(id, localBest)
         globalChampion.accumulateAndGet(localBest) { prev, next ->
             if (prev == null || next.error < prev.error) next else prev
         }
@@ -66,6 +70,7 @@ class IslandCoordinator(
 
             if (candidateError <= localBest.error) {
                 localBest = mutated.copy(error = candidateError)
+                islandChampions.set(id, localBest)
                 acceptedMutations.incrementAndGet()
 
                 globalChampion.accumulateAndGet(localBest) { prev, next ->

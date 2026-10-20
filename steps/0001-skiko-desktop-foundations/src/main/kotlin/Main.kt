@@ -1,8 +1,9 @@
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.FontMgr
+import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
-import org.jetbrains.skia.Surface
 import org.jetbrains.skiko.SkiaLayer
 import org.jetbrains.skiko.SkikoRenderDelegate
 import java.awt.Dimension
@@ -35,8 +36,12 @@ class DemoRenderDelegate(
             color = 0xFFCDD6F4.toInt()
             isAntiAlias = true
         }
-    val titleFont = Font().apply { size = 24f }
-    val subFont = Font().apply { size = 14f }
+    val defaultTypeface =
+        FontMgr.default.matchFamilyStyle("Helvetica", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle("Arial", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle(null, FontStyle.NORMAL)
+    val titleFont = Font(defaultTypeface, 24f)
+    val subFont = Font(defaultTypeface, 14f)
 
     override fun onRender(
         canvas: Canvas,
@@ -80,15 +85,6 @@ class DemoRenderDelegate(
 }
 
 fun main(args: Array<String>) {
-    if (args.contains("--headless")) {
-        println("Running headless smoke test verification...")
-        val surface = Surface.makeRasterN32Premul(800, 600)
-        val delegate = DemoRenderDelegate()
-        delegate.onRender(surface.canvas, 800, 600, System.nanoTime())
-        println("Render verification successful: drawn 800x600 frame to Skia surface.")
-        return
-    }
-
     SwingUtilities.invokeLater {
         val window =
             JFrame("Kotlin Desktop with Skiko").apply {

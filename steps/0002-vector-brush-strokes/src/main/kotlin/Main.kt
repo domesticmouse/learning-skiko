@@ -1,9 +1,10 @@
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.FontMgr
+import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Path
 import org.jetbrains.skia.Rect
-import org.jetbrains.skia.Surface
 import org.jetbrains.skiko.SkiaLayer
 import org.jetbrains.skiko.SkikoRenderDelegate
 import java.awt.Dimension
@@ -29,7 +30,11 @@ class VectorPaintingRenderDelegate(
             color = 0xFFCDD6F4.toInt()
             isAntiAlias = true
         }
-    private val font = Font().apply { size = 15f }
+    private val typeface =
+        FontMgr.default.matchFamilyStyle("Helvetica", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle("Arial", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle(null, FontStyle.NORMAL)
+    private val font = Font(typeface, 15f)
 
     override fun onRender(
         canvas: Canvas,
@@ -65,19 +70,6 @@ fun main(args: Array<String>) {
     val simHeight = 600f
     val rng = Random(42)
     var painting = Painting.createRandom(50, simWidth, simHeight, rng)
-
-    if (args.contains("--headless")) {
-        println("Running Step 2 headless smoke verification...")
-        val surface = Surface.makeRasterN32Premul(simWidth.toInt(), simHeight.toInt())
-        val delegate = VectorPaintingRenderDelegate(painting, simWidth, simHeight)
-        delegate.onRender(surface.canvas, simWidth.toInt(), simHeight.toInt(), System.nanoTime())
-        println("Successfully rendered random painting with ${painting.strokes.size} strokes.")
-        val mutated = painting.mutate(simWidth, simHeight, rng)
-        delegate.painting = mutated
-        delegate.onRender(surface.canvas, simWidth.toInt(), simHeight.toInt(), System.nanoTime())
-        println("Successfully mutated painting and rendered second frame.")
-        return
-    }
 
     SwingUtilities.invokeLater {
         val window =

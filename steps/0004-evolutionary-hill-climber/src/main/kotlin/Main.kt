@@ -1,9 +1,10 @@
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.FontMgr
+import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Path
 import org.jetbrains.skia.Rect
-import org.jetbrains.skia.Surface
 import org.jetbrains.skiko.SkiaLayer
 import org.jetbrains.skiko.SkikoRenderDelegate
 import java.awt.Dimension
@@ -26,7 +27,11 @@ class HillClimberRenderDelegate(
             color = 0xFFCDD6F4.toInt()
             isAntiAlias = true
         }
-    private val font = Font().apply { size = 13f }
+    private val typeface =
+        FontMgr.default.matchFamilyStyle("Helvetica", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle("Arial", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle(null, FontStyle.NORMAL)
+    private val font = Font(typeface, 13f)
 
     override fun onRender(
         canvas: Canvas,
@@ -79,33 +84,6 @@ fun main(args: Array<String>) {
     val simSize = 256
     val target = TargetImage.loadOrGenerate(args.firstOrNull { !it.startsWith("--") }, simSize, simSize)
     val painter = GeneticPainter(target = target, initialStrokeCount = 80)
-
-    if (args.contains("--headless")) {
-        println("Running Step 4 headless evolutionary loop verification...")
-        println("Initial Error: ${painter.initialError}")
-        painter.start()
-
-        // Let background evolutionary loop evolve for 1000ms
-        val start = System.currentTimeMillis()
-        while (System.currentTimeMillis() - start < 1000L) {
-            Thread.sleep(100)
-        }
-        painter.stop()
-
-        val gens = painter.generations.get()
-        val accepted = painter.acceptedMutations.get()
-        val best = painter.getBestPainting()
-
-        println("Generations evaluated: $gens")
-        println("Accepted improvements: $accepted")
-        println("Final Champion Error: ${best.error}")
-
-        val surface = Surface.makeRasterN32Premul(simSize * 2 + 60, simSize + 120)
-        val delegate = HillClimberRenderDelegate(painter)
-        delegate.onRender(surface.canvas, surface.width, surface.height, System.nanoTime())
-        println("Headless rendering test complete.")
-        return
-    }
 
     painter.start()
 

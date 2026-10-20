@@ -1,10 +1,13 @@
+import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Path
 import org.jetbrains.skia.Surface
+import java.io.File
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class VectorBrushTest {
@@ -72,5 +75,36 @@ class VectorBrushTest {
         // Verifies the offscreen raster surface can be rendered without exception
         assertEquals(width.toInt(), surface.width)
         assertEquals(height.toInt(), surface.height)
+    }
+
+    @Test
+    fun testRenderAndCaptureScreenshot() {
+        val windowW = 800
+        val windowH = 600
+        val surface = Surface.makeRasterN32Premul(windowW, windowH)
+        val painting = Painting.createRandom(50, windowW.toFloat(), windowH.toFloat(), rng)
+        val delegate = VectorPaintingRenderDelegate(painting, windowW.toFloat(), windowH.toFloat())
+
+        delegate.onRender(surface.canvas, windowW, windowH, 1_000_000_000L)
+
+        val image = surface.makeImageSnapshot()
+        val data = image.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data, "PNG data should not be null")
+        assertTrue(data.bytes.isNotEmpty(), "PNG bytes must not be empty")
+
+        saveScreenshot(data.bytes, "step-0002-vector-brush-strokes.png")
+    }
+
+    private fun saveScreenshot(
+        bytes: ByteArray,
+        fileName: String,
+    ) {
+        val localDir = File("build/reports/screenshots").apply { mkdirs() }
+        File(localDir, fileName).writeBytes(bytes)
+
+        val topLevelDir = File("../../artifacts/screenshots")
+        if (topLevelDir.exists() || topLevelDir.mkdirs()) {
+            File(topLevelDir, fileName).writeBytes(bytes)
+        }
     }
 }

@@ -1,9 +1,10 @@
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.FontMgr
+import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Path
 import org.jetbrains.skia.Rect
-import org.jetbrains.skia.Surface
 import org.jetbrains.skiko.SkiaLayer
 import org.jetbrains.skiko.SkikoRenderDelegate
 import java.awt.Dimension
@@ -29,7 +30,11 @@ class EvaluatorRenderDelegate(
             color = 0xFFCDD6F4.toInt()
             isAntiAlias = true
         }
-    private val font = Font().apply { size = 14f }
+    private val typeface =
+        FontMgr.default.matchFamilyStyle("Helvetica", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle("Arial", FontStyle.NORMAL)
+            ?: FontMgr.default.matchFamilyStyle(null, FontStyle.NORMAL)
+    private val font = Font(typeface, 14f)
 
     override fun onRender(
         canvas: Canvas,
@@ -80,26 +85,6 @@ fun main(args: Array<String>) {
     val initialPainting = Painting.createRandom(40, simSize.toFloat(), simSize.toFloat(), rng)
     val initialError = evaluator.evaluate(initialPainting)
     var currentPainting = initialPainting.copy(error = initialError)
-
-    if (args.contains("--headless")) {
-        println("Running Step 3 headless fitness evaluation verification...")
-        val surface = Surface.makeRasterN32Premul(simSize * 2 + 60, simSize + 120)
-        val delegate = EvaluatorRenderDelegate(target, currentPainting, evaluator)
-        delegate.onRender(surface.canvas, surface.width, surface.height, System.nanoTime())
-        println("Initial random painting error: ${currentPainting.error}")
-
-        // Test mutating 10 times and evaluating
-        for (i in 1..10) {
-            val candidate = currentPainting.mutate(simSize.toFloat(), simSize.toFloat(), rng)
-            val candError = evaluator.evaluate(candidate)
-            if (candError <= currentPainting.error) {
-                currentPainting = candidate.copy(error = candError)
-            }
-        }
-        println("After 10 mutations, best error: ${currentPainting.error}")
-        println("Headless offscreen fitness evaluation succeeded.")
-        return
-    }
 
     SwingUtilities.invokeLater {
         val window =

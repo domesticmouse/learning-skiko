@@ -1,5 +1,9 @@
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Surface
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class GeneticPainterTest {
@@ -82,5 +86,47 @@ class GeneticPainterTest {
 
         assertEquals(0L, painter.generations.get())
         assertEquals(0L, painter.acceptedMutations.get())
+    }
+
+    @Test
+    fun testRenderAndCaptureScreenshot() {
+        val simSize = 256
+        val target = TargetImage.loadOrGenerate(null, simSize, simSize)
+        val painter = GeneticPainter(target = target, initialStrokeCount = 60)
+
+        // Evolve for a short run to populate telemetry and candidate strokes
+        painter.start()
+        val start = System.currentTimeMillis()
+        while (painter.generations.get() < 250L && System.currentTimeMillis() - start < 1500L) {
+            Thread.sleep(20)
+        }
+        painter.stop()
+
+        val windowW = simSize * 2 + 60
+        val windowH = simSize + 120
+        val surface = Surface.makeRasterN32Premul(windowW, windowH)
+        val delegate = HillClimberRenderDelegate(painter)
+
+        delegate.onRender(surface.canvas, windowW, windowH, 1_000_000_000L)
+
+        val image = surface.makeImageSnapshot()
+        val data = image.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data, "PNG data should not be null")
+        assertTrue(data.bytes.isNotEmpty(), "PNG bytes must not be empty")
+
+        saveScreenshot(data.bytes, "step-0004-evolutionary-hill-climber.png")
+    }
+
+    private fun saveScreenshot(
+        bytes: ByteArray,
+        fileName: String,
+    ) {
+        val localDir = File("build/reports/screenshots").apply { mkdirs() }
+        File(localDir, fileName).writeBytes(bytes)
+
+        val topLevelDir = File("../../artifacts/screenshots")
+        if (topLevelDir.exists() || topLevelDir.mkdirs()) {
+            File(topLevelDir, fileName).writeBytes(bytes)
+        }
     }
 }
