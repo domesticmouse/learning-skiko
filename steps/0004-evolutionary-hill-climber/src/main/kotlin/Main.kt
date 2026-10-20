@@ -16,6 +16,7 @@ import javax.swing.WindowConstants
 class HillClimberRenderDelegate(
     val painter: GeneticPainter,
     val onFrameRendered: (() -> Unit)? = null,
+    val getScale: () -> Float = { 1.0f },
 ) : SkikoRenderDelegate {
     private val strokePaint = Paint()
     private val strokePath = Path()
@@ -33,6 +34,12 @@ class HillClimberRenderDelegate(
         height: Int,
         nanoTime: Long,
     ) {
+        val scale = getScale()
+        canvas.save()
+        canvas.scale(scale, scale)
+        val logicalW = width / scale
+        val logicalH = height / scale
+
         val pw = painter.width.toFloat()
         val ph = painter.height.toFloat()
         val best = painter.getBestPainting()
@@ -47,7 +54,7 @@ class HillClimberRenderDelegate(
         canvas.restore()
 
         // 3. Draw Telemetry Overlay
-        canvas.drawRect(Rect.makeXYWH(20f, ph + 30f, width - 40f, 70f), hudBgPaint)
+        canvas.drawRect(Rect.makeXYWH(20f, ph + 30f, logicalW - 40f, 70f), hudBgPaint)
         val gens = painter.generations.get()
         val accepted = painter.acceptedMutations.get()
         val evalsSec = painter.currentEvalsPerSec.get()
@@ -63,6 +70,7 @@ class HillClimberRenderDelegate(
         )
         canvas.drawString("Press [SPACE] to Pause/Resume | [R] to Reset", 35f, ph + 92f, font, textPaint)
 
+        canvas.restore()
         onFrameRendered?.invoke()
     }
 }
@@ -113,6 +121,7 @@ fun main(args: Array<String>) {
             HillClimberRenderDelegate(
                 painter = painter,
                 onFrameRendered = { skiaLayer.needRedraw() },
+                getScale = { skiaLayer.contentScale },
             )
         skiaLayer.renderDelegate = delegate
 

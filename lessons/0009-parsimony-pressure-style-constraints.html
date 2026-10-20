@@ -527,6 +527,12 @@ class RegularizedEvaluatorTest {
     // INTERACTIVE PARSIMONY CANVAS
     const canvas = document.getElementById('parsimonyCanvas');
     const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(280 * dpr);
+    canvas.height = Math.round(280 * dpr);
+    canvas.style.width = '280px';
+    canvas.style.height = '280px';
+    ctx.scale(dpr, dpr);
 
     const alphaSlider = document.getElementById('alphaSlider');
     const strokeCapSlider = document.getElementById('strokeCapSlider');

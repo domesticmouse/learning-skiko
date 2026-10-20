@@ -19,6 +19,7 @@ class EvaluatorRenderDelegate(
     var painting: Painting,
     val evaluator: Evaluator,
     val onFrameRendered: (() -> Unit)? = null,
+    val getScale: () -> Float = { 1.0f },
 ) : SkikoRenderDelegate {
     private val strokePaint = Paint()
     private val strokePath = Path()
@@ -36,6 +37,12 @@ class EvaluatorRenderDelegate(
         height: Int,
         nanoTime: Long,
     ) {
+        val scale = getScale()
+        canvas.save()
+        canvas.scale(scale, scale)
+        val logicalW = width / scale
+        val logicalH = height / scale
+
         val paneW = target.width.toFloat()
         val paneH = target.height.toFloat()
 
@@ -49,7 +56,7 @@ class EvaluatorRenderDelegate(
         canvas.restore()
 
         // 3. Draw HUD
-        canvas.drawRect(Rect.makeXYWH(20f, paneH + 30f, width - 40f, 60f), hudBgPaint)
+        canvas.drawRect(Rect.makeXYWH(20f, paneH + 30f, logicalW - 40f, 60f), hudBgPaint)
         canvas.drawString("Target: ${target.sourceDescription}", 35f, paneH + 55f, font, textPaint)
         canvas.drawString(
             "Strokes: ${painting.strokes.size} | L2 SSD Error: ${painting.error} | Press [SPACE] to Mutate & Evaluate",
@@ -59,6 +66,7 @@ class EvaluatorRenderDelegate(
             textPaint,
         )
 
+        canvas.restore()
         onFrameRendered?.invoke()
     }
 }
@@ -107,6 +115,7 @@ fun main(args: Array<String>) {
                 painting = currentPainting,
                 evaluator = evaluator,
                 onFrameRendered = { skiaLayer.needRedraw() },
+                getScale = { skiaLayer.contentScale },
             )
         skiaLayer.renderDelegate = delegate
 

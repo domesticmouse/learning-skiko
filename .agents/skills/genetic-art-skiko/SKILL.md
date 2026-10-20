@@ -197,11 +197,19 @@ Distinguish **Step-Size Annealing** (cooling the mutation radius $\sigma(t)$ whi
 
 1. **Split-Screen Layout**: Display the reference target image on the left and the evolving champion on the right using `canvas.drawImageRect`.
 2. **Thread Safety**: Pass immutable `Painting` snapshots between background evolution threads and the Swing EDT using `AtomicReference<Painting>`.
-3. **In-Canvas Skia HUD**: Render rounded dashboard cards directly on the canvas using `RRect` and Skia `Font`:
+3. **HiDPI Canvas Normalization & In-Canvas Skia HUD**: Skiko's `onRender(canvas, width, height, ...)` receives physical backing pixels. If drawn without canvas scaling on a $2\times$ Retina display ($1920 \times 1360$), display viewports balloon, telemetry typography renders microscopic ($6\text{pt}$), and column offsets cram to the far left. Always normalize the canvas to Swing logical points at the start of `onRender`:
    ```kotlin
+   val scale = skiaLayer.contentScale
+   canvas.save()
+   canvas.scale(scale, scale)
+   val w = width / scale
+   val h = height / scale
+
    canvas.drawRRect(RRect.makeXYWH(32f, hudY, w - 64f, 82f, 10f), cardPaint)
    canvas.drawString("GENERATIONS", col1, hudY + 28f, labelFont, textDimPaint)
    canvas.drawString("%,d".format(gens), col1, hudY + 54f, valueFont, textMainPaint)
+
+   canvas.restore()
    ```
 4. **Decoupled Redraw**: Trigger `skiaLayer.needRedraw()` at the end of `onRender()` to keep the UI smooth at 60 FPS while the worker thread evolves at full speed.
 5. **Key Controls via KeyAdapter**:

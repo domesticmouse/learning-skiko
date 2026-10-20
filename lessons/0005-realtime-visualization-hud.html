@@ -230,12 +230,19 @@
           <span>HUD Rendering in Main.kt</span>
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
         </div>
-        <pre><code class="language-kotlin">// Draw Rounded HUD Card
+        <pre><code class="language-kotlin">// 1. HiDPI Normalization: scale Skia Canvas to Swing logical coordinates
+val scale = skiaLayer.contentScale
+canvas.save()
+canvas.scale(scale, scale)
+val w = width / scale
+val h = height / scale
+
+// 2. Draw Rounded HUD Card
 val hudRect = Rect.makeXYWH(32f, hudY, w - 64f, 82f)
 canvas.drawRRect(RRect.makeXYWH(32f, hudY, w - 64f, 82f, 10f), cardPaint)
 canvas.drawRRect(RRect.makeXYWH(32f, hudY, w - 64f, 82f, 10f), borderPaint)
 
-// Render Real-Time Telemetry
+// 3. Render Real-Time Telemetry
 val gens = painter.generations.get()
 val accepted = painter.acceptedMutations.get()
 val evalsSec = painter.currentEvalsPerSec.get()
@@ -245,7 +252,14 @@ canvas.drawString("GENERATIONS", col1, hudY + 28f, smallFont, textDimPaint)
 canvas.drawString("%,d".format(gens), col1, hudY + 54f, headerFont, textMainPaint)
 
 canvas.drawString("SPEED", col4, hudY + 28f, smallFont, textDimPaint)
-canvas.drawString("%,d evals/s".format(evalsSec), col4, hudY + 54f, headerFont, textMainPaint)</code></pre>
+canvas.drawString("%,d evals/s".format(evalsSec), col4, hudY + 54f, headerFont, textMainPaint)
+
+canvas.restore()</code></pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">💡 Why HiDPI Canvas Scaling is Critical for HUDs</div>
+        <p>Because Skiko's <code>onRender</code> passes physical pixel dimensions (e.g. \(1920 \times 1360\) on a \(2\times\) Retina Mac), drawing with unscaled coordinates causes typography to appear at half size and telemetry columns to bunch up on the left. Normalizing via <code>canvas.scale(scale, scale)</code> ensures that font sizes, padding, and column spacing remain visually proportional and crisp across all displays.</p>
       </div>
     </section>
 

@@ -121,29 +121,29 @@ val scale = skiaLayer.contentScale // e.g. 2.0 on macOS Retina, 1.0 on standard 
 - `width` and `height` received in `onRender(canvas, width, height, nanoTime)` are **physical device pixels** (e.g. $1600 \times 1200$ for an $800 \times 600$ window at $2\times$ scale).
 - Mouse events in Swing `MouseEvent` report in **logical points** ($[0..800]$ and $[0..600]$).
 
-### Pattern A: Scale Mouse Events to Physical Canvas Coordinates
-```kotlin
-skiaLayer.addMouseMotionListener(object : MouseMotionAdapter() {
-    override fun mouseMoved(e: MouseEvent) {
-        val scale = skiaLayer.contentScale
-        physicalMouseX = e.x.toFloat() * scale
-        physicalMouseY = e.y.toFloat() * scale
-        skiaLayer.needRedraw()
-    }
-})
-```
-
-### Pattern B: Pre-Scale Canvas to Work in Logical Points
+### Canonical Pattern: Pre-Scale Canvas to Work in Logical Points (Recommended)
+Always scale the canvas by `skiaLayer.contentScale` at the start of `onRender`. This aligns Skia with Swing logical dimensions, ensuring typography, stroke widths, and coordinate layouts remain identical across 100%, 150%, and 200% displays, and allows Swing mouse coordinates to map 1:1 without manual conversion:
 ```kotlin
 override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
     val scale = skiaLayer.contentScale
     canvas.save()
     canvas.scale(scale, scale)
-    // Draw all shapes, text, and mouse interactions in logical points (0..800, 0..600)
-    canvas.drawCircle(logicalMouseX, logicalMouseY, radius, circlePaint)
+    val logicalW = width / scale
+    val logicalH = height / scale
+
+    // Draw all shapes, text, and mouse interactions in logical points (0..logicalW, 0..logicalH)
+    canvas.drawCircle(mouseX, mouseY, radius, circlePaint)
+    canvas.drawString("Hello", 50f, 70f, font, textPaint)
+
     canvas.restore()
 }
 ```
+
+### Anti-Pattern: Scaling Only Mouse Coordinates (Avoid)
+Multiplying only `e.x * scale` and `e.y * scale` while drawing in raw physical pixels causes serious layout bugs on HiDPI displays:
+- Typography renders at half intended size (e.g., a 16px font renders at 8pt).
+- Fixed pixel shapes and geometries cluster in the top-left quadrant of the window.
+- Stroke widths appear hairline-thin.
 
 ---
 

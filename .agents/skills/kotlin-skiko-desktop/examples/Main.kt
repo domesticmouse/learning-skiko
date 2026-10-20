@@ -53,29 +53,36 @@ fun main() {
                     height: Int,
                     nanoTime: Long,
                 ) {
+                    // Canonical HiDPI scaling: normalize canvas to Swing logical coordinates
+                    val scale = skiaLayer.contentScale
+                    canvas.save()
+                    canvas.scale(scale, scale)
+                    val logicalW = width / scale
+                    val logicalH = height / scale
+
                     // Clear background
-                    canvas.drawRect(Rect.makeWH(width.toFloat(), height.toFloat()), bgPaint)
+                    canvas.drawRect(Rect.makeWH(logicalW, logicalH), bgPaint)
 
                     // Animation calculation using frame timestamp
                     val seconds = nanoTime / 1_000_000_000.0
                     val pulse = (sin(seconds * 3.0).toFloat() + 1f) * 15f + 40f
 
-                    // Draw pulsing follower circle (scaled to physical pixels)
-                    val scale = skiaLayer.contentScale
-                    canvas.drawCircle(mouseX * scale, mouseY * scale, pulse + 20f, glowPaint)
-                    canvas.drawCircle(mouseX * scale, mouseY * scale, pulse, circlePaint)
+                    // Draw follower circle (mouseX/mouseY match 1:1 with logical canvas points)
+                    canvas.drawCircle(mouseX, mouseY, pulse + 20f, glowPaint)
+                    canvas.drawCircle(mouseX, mouseY, pulse, circlePaint)
 
-                    // Draw crisp vector text
+                    // Draw crisp vector text at native display DPI
                     canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, font, textPaint)
                     canvas.drawString("Move your mouse around to interact with the 2D canvas.", 50f, 105f, subFont, textPaint)
-                    canvas.drawString("Window Size: ${width}x${height} | Time: ${String.format("%.1f", seconds)}s", 50f, height - 30f, subFont, textPaint)
+                    canvas.drawString("Resolution: ${width}x${height}px (Scale: ${scale}x) | Time: ${String.format("%.1f", seconds)}s", 50f, logicalH - 30f, subFont, textPaint)
 
+                    canvas.restore()
                     // Request continuous redraw for smooth 60/120 FPS
                     skiaLayer.needRedraw()
                 }
             }
 
-        // Add mouse motion tracking
+        // Add mouse motion tracking (e.x and e.y map directly to logical canvas points)
         skiaLayer.addMouseMotionListener(
             object : MouseMotionAdapter() {
                 override fun mouseMoved(e: MouseEvent) {

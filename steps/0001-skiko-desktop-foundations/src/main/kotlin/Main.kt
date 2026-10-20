@@ -17,6 +17,7 @@ import kotlin.math.sin
 class DemoRenderDelegate(
     val getMousePos: () -> Pair<Float, Float> = { 400f to 300f },
     val onFrameRendered: (() -> Unit)? = null,
+    val getScale: () -> Float = { 1.0f },
 ) : SkikoRenderDelegate {
     val bgPaint = Paint().apply { color = 0xFF1E1E2E.toInt() }
     val circlePaint =
@@ -43,8 +44,14 @@ class DemoRenderDelegate(
         height: Int,
         nanoTime: Long,
     ) {
+        val scale = getScale()
+        canvas.save()
+        canvas.scale(scale, scale)
+        val logicalW = width / scale
+        val logicalH = height / scale
+
         // Clear background
-        canvas.drawRect(Rect.makeWH(width.toFloat(), height.toFloat()), bgPaint)
+        canvas.drawRect(Rect.makeWH(logicalW, logicalH), bgPaint)
 
         // Compute smooth elapsed time animation
         val seconds = nanoTime / 1_000_000_000.0
@@ -60,13 +67,14 @@ class DemoRenderDelegate(
         canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, titleFont, textPaint)
         canvas.drawString("Move your mouse around to interact with the hardware canvas.", 50f, 105f, subFont, textPaint)
         canvas.drawString(
-            "Resolution: ${width}x${height}px | Time: ${String.format(Locale.US, "%.1f", seconds)}s",
+            "Resolution: ${width}x${height}px (Scale: ${scale}x) | Time: ${String.format(Locale.US, "%.1f", seconds)}s",
             50f,
-            height - 30f,
+            logicalH - 30f,
             subFont,
             textPaint,
         )
 
+        canvas.restore()
         onFrameRendered?.invoke()
     }
 }
@@ -94,8 +102,9 @@ fun main(args: Array<String>) {
         val skiaLayer = SkiaLayer()
         val delegate =
             DemoRenderDelegate(
-                getMousePos = { (mouseX * skiaLayer.contentScale) to (mouseY * skiaLayer.contentScale) },
+                getMousePos = { mouseX to mouseY },
                 onFrameRendered = { skiaLayer.needRedraw() },
+                getScale = { skiaLayer.contentScale },
             )
         skiaLayer.renderDelegate = delegate
 

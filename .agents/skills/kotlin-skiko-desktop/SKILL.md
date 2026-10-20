@@ -165,7 +165,19 @@ Skiko renders directly to a `SkiaLayer`, embedded inside a standard Java Swing `
 5. **Offscreen rendering & image encoding**: Use `Bitmap().apply { allocN32Pixels(...) }`, `Canvas(bitmap)`, and `bitmap.readPixels(...)` for headless rendering, image processing, and evolutionary algorithms without a visible window.
 6. **Vector Path Closure (`path.closePath()` vs `path.close()`)**: Never call `path.close()` on a Skia `Path` to close a geometry contour. In Skiko's bindings, `Path.close()` implements Java's `AutoCloseable.close()`, which deletes the underlying C++ native pointer (`_ptr = 0`). Subsequent draw calls cause an immediate fatal `SIGSEGV in SkPath::isFinite()`. Always use `path.closePath()`.
 7. **Receiver Scoping Trap in `Bitmap().apply`**: Inside `Bitmap().apply { allocN32Pixels(width, height) }`, unqualified `width` and `height` resolve to `Bitmap.width` and `Bitmap.height` (which are both `0`), silently allocating an empty `0x0` bitmap. Always qualify outer dimensions explicitly: `allocN32Pixels(this@MyClass.width, this@MyClass.height)` or pass distinct parameter names.
-8. **High-DPI / Retina Mouse Coordinates (`skiaLayer.contentScale`)**: Swing `MouseEvent` coordinates (`e.x`, `e.y`) report in logical points, whereas Skiko's `onRender(canvas, width, height, ...)` operates in physical backing pixels (e.g. $1600 \times 1200$ for an $800 \times 600$ window on a $2\times$ Retina display). When tracking mouse input, multiply by `skiaLayer.contentScale` (e.g., `mouseX = e.x.toFloat() * skiaLayer.contentScale`) or apply `canvas.scale(skiaLayer.contentScale, skiaLayer.contentScale)` at the top of `onRender` so coordinates remain 1:1.
+8. **Canonical High-DPI / Retina Scaling (`canvas.scale(skiaLayer.contentScale, skiaLayer.contentScale)`)**: Swing `JFrame` dimensions and `MouseEvent` coordinates report in **logical points** (e.g. $800 \times 600$), whereas Skiko's `onRender(canvas, width, height, ...)` passes physical backing pixels (e.g. $1600 \times 1200$ on a $2\times$ Retina display). Scaling only mouse coordinates (`mouseX * scale`) is an anti-pattern: it leaves typography at half-size, stroke widths hairline-thin, and layouts clustered in the top-left quadrant. Always normalize the Skia `Canvas` at the top of `onRender`:
+   ```kotlin
+   val scale = skiaLayer.contentScale
+   canvas.save()
+   canvas.scale(scale, scale)
+   val logicalW = width / scale
+   val logicalH = height / scale
+
+   // Draw all UI, typography, and shapes using logical points (0..logicalW, 0..logicalH)
+   // Swing MouseEvent coordinates (e.x, e.y) map 1:1 directly without manual multiplication!
+   ...
+   canvas.restore()
+   ```
 
 See the complete working reference in [`examples/Main.kt`](./examples/Main.kt).
 

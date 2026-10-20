@@ -623,6 +623,14 @@ class IslandCoordinatorTest {
       document.getElementById('canvas2'),
       document.getElementById('canvas3')
     ];
+    const dpr = window.devicePixelRatio || 1;
+    canvases.forEach(c => {
+      c.width = Math.round(280 * dpr);
+      c.height = Math.round(140 * dpr);
+      c.style.width = '280px';
+      c.style.height = '140px';
+      c.getContext('2d').scale(dpr, dpr);
+    });
     const ctxs = canvases.map(c => c.getContext('2d'));
 
     // Shared target composition: sunset sky bands, glowing sun, mountain ridges, water reflections

@@ -128,6 +128,9 @@ When the user asks to turn an existing codebase or working application into a mu
    - **HTML & Asset Hygiene**:
      - Keep shared typography and component styles in `./assets/lesson-style.css`; limit inline `<style>` blocks to lesson-specific simulator layout rules.
      - Verify every `<div class="callout ...">` tag is closed before the next `<section>` (an unclosed callout swallows subsequent sections).
+   - **HiDPI & Retina Display Scaling**:
+     - In desktop GUI code (Skiko/AWT/Swing), always implement and teach the canonical canvas scaling pattern (`canvas.scale(skiaLayer.contentScale, skiaLayer.contentScale)`), keeping fonts, shapes, stroke widths, and window layouts proportional and crisp across all display scaling ratios.
+     - In interactive in-browser `<canvas>` simulators, always back the canvas buffer with `window.devicePixelRatio` and normalize mouse coordinates (`(clientX - rect.left) * (logicalW / rect.width)`) to eliminate blurry rasterization and cursor desynchronization on Retina displays.
 
 9. **Stepwise Curriculum Verification & Runnable Codebases**:
    When converting a curriculum into runnable exercises or verifying that each lesson generates working software:

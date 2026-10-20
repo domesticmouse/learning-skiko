@@ -595,6 +595,15 @@ class VectorBrushTest {
     // Interactive Bézier Canvas
     const canvas = document.getElementById('strokeCanvas');
     const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = 480;
+    const logicalH = 260;
+    canvas.width = Math.round(logicalW * dpr);
+    canvas.height = Math.round(logicalH * dpr);
+    canvas.style.width = `${logicalW}px`;
+    canvas.style.height = `${logicalH}px`;
+    ctx.scale(dpr, dpr);
+
     const widthSlider = document.getElementById('paramWidth');
     const alphaSlider = document.getElementById('paramAlpha');
     const hueSlider = document.getElementById('paramHue');
@@ -605,11 +614,11 @@ class VectorBrushTest {
     let activeHandle = null;
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, logicalW, logicalH);
 
       // Canvas background
       ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, logicalW, logicalH);
 
       // Draw faint control tangents
       ctx.strokeStyle = '#cbd5e1';
@@ -655,10 +664,16 @@ class VectorBrushTest {
       ctx.fillText(label, x - 22, y - 12);
     }
 
-    canvas.addEventListener('mousedown', (e) => {
+    function getCanvasCoords(e) {
       const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      return {
+        x: (e.clientX - rect.left) * (logicalW / rect.width),
+        y: (e.clientY - rect.top) * (logicalH / rect.height)
+      };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const { x: mx, y: my } = getCanvasCoords(e);
       for (const pt of [pc, p0, p1]) {
         if (Math.hypot(mx - pt.x, my - pt.y) < 20) {
           activeHandle = pt;
@@ -669,9 +684,9 @@ class VectorBrushTest {
 
     window.addEventListener('mousemove', (e) => {
       if (activeHandle) {
-        const rect = canvas.getBoundingClientRect();
-        activeHandle.x = Math.max(20, Math.min(canvas.width - 20, e.clientX - rect.left));
-        activeHandle.y = Math.max(20, Math.min(canvas.height - 20, e.clientY - rect.top));
+        const { x: mx, y: my } = getCanvasCoords(e);
+        activeHandle.x = Math.max(20, Math.min(logicalW - 20, mx));
+        activeHandle.y = Math.max(20, Math.min(logicalH - 20, my));
         draw();
       }
     });

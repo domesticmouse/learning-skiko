@@ -128,8 +128,11 @@ fun main(args: Array<String>) {
                     height: Int,
                     nanoTime: Long,
                 ) {
-                    val w = width.toFloat()
-                    val h = height.toFloat()
+                    val scale = skiaLayer.contentScale
+                    canvas.save()
+                    canvas.scale(scale, scale)
+                    val w = width / scale
+                    val h = height / scale
 
                     // 1. Background
                     canvas.drawRect(Rect.makeWH(w, h), bgPaint)
@@ -227,6 +230,7 @@ fun main(args: Array<String>) {
                     }
 
                     // Request next frame
+                    canvas.restore()
                     skiaLayer.needRedraw()
                 }
             }

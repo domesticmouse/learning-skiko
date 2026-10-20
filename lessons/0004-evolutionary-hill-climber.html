@@ -564,6 +564,15 @@ class GeneticPainterTest {
     const liveCanvas = document.getElementById('simLiveCanvas');
     const liveCtx = liveCanvas.getContext('2d');
 
+    const dpr = window.devicePixelRatio || 1;
+    [targetCanvas, liveCanvas].forEach(c => {
+      c.width = Math.round(180 * dpr);
+      c.height = Math.round(140 * dpr);
+      c.style.width = '180px';
+      c.style.height = '140px';
+      c.getContext('2d').scale(dpr, dpr);
+    });
+
     const goalStrokes = [
       { x0: 20, y0: 40, xc: 90, yc: 20, x1: 160, y1: 40, r: 245, g: 158, b: 11, w: 38 },
       { x0: 90, y0: 55, xc: 90, yc: 55, x1: 91, y1: 55, r: 254, g: 240, b: 138, w: 44 },

@@ -608,6 +608,12 @@ class AnnealingScheduleTest {
     // SIMULATED ANNEALING INTERACTIVE CANVAS
     const canvas = document.getElementById('annealCanvas');
     const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(300 * dpr);
+    canvas.height = Math.round(300 * dpr);
+    canvas.style.width = '300px';
+    canvas.style.height = '300px';
+    ctx.scale(dpr, dpr);
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d');
 

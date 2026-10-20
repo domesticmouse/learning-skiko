@@ -601,6 +601,12 @@ class GeneTest {
     // INTERACTIVE PRIMITIVES SANDBOX
     const canvas = document.getElementById('sandboxCanvas');
     const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(360 * dpr);
+    canvas.height = Math.round(260 * dpr);
+    canvas.style.width = '360px';
+    canvas.style.height = '260px';
+    ctx.scale(dpr, dpr);
 
     let currentMode = 'quad';
     let geneState = {};

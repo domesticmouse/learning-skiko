@@ -19,6 +19,7 @@ class VectorPaintingRenderDelegate(
     val canvasWidth: Float,
     val canvasHeight: Float,
     val onFrameRendered: (() -> Unit)? = null,
+    val getScale: () -> Float = { 1.0f },
 ) : SkikoRenderDelegate {
     private val strokePaint = Paint()
     private val strokePath = Path()
@@ -36,7 +37,13 @@ class VectorPaintingRenderDelegate(
         height: Int,
         nanoTime: Long,
     ) {
-        painting.render(canvas, width.toFloat(), height.toFloat(), strokePaint, strokePath)
+        val scale = getScale()
+        canvas.save()
+        canvas.scale(scale, scale)
+        val logicalW = width / scale
+        val logicalH = height / scale
+
+        painting.render(canvas, logicalW, logicalH, strokePaint, strokePath)
 
         // Draw HUD overlay
         canvas.drawRect(Rect.makeXYWH(20f, 20f, 360f, 50f), hudBgPaint)
@@ -48,6 +55,7 @@ class VectorPaintingRenderDelegate(
             textPaint,
         )
 
+        canvas.restore()
         onFrameRendered?.invoke()
     }
 }
@@ -85,6 +93,7 @@ fun main(args: Array<String>) {
                 canvasWidth = simWidth,
                 canvasHeight = simHeight,
                 onFrameRendered = { skiaLayer.needRedraw() },
+                getScale = { skiaLayer.contentScale },
             )
         skiaLayer.renderDelegate = delegate
 

@@ -513,8 +513,15 @@ fun main() {
             val subFont = Font().apply { size = 14f }
 
             override fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
+                // Canonical HiDPI scaling: scale Skia Canvas to Swing logical coordinates
+                val scale = skiaLayer.contentScale
+                canvas.save()
+                canvas.scale(scale, scale)
+                val logicalW = width / scale
+                val logicalH = height / scale
+
                 // Clear the background
-                canvas.drawRect(Rect.makeWH(width.toFloat(), height.toFloat()), bgPaint)
+                canvas.drawRect(Rect.makeWH(logicalW, logicalH), bgPaint)
 
                 // Compute smooth elapsed time animation
                 val seconds = nanoTime / 1_000_000_000.0
@@ -527,24 +534,27 @@ fun main() {
                 // Draw high-DPI crisp vector text
                 canvas.drawString("Hello from Skiko (Skia for Kotlin)!", 50f, 70f, titleFont, textPaint)
                 canvas.drawString("Move your mouse around to interact with the hardware canvas.", 50f, 105f, subFont, textPaint)
-                canvas.drawString("Resolution: ${width}x${height}px | Time: ${String.format("%.1f", seconds)}s", 50f, height - 30f, subFont, textPaint)
+                canvas.drawString("Resolution: ${width}x${height}px (Scale: ${scale}x) | Time: ${String.format("%.1f", seconds)}s", 50f, logicalH - 30f, subFont, textPaint)
 
+                canvas.restore()
                 // Request continuous redrawing for 60fps/120fps animation
                 skiaLayer.needRedraw()
             }
         }
 
-        // 4. Listen to mouse motion events (scaled to physical pixels for HiDPI/Retina)
+        // 4. Listen to mouse motion events
+        // Since canvas.scale(scale, scale) aligns Skia with Swing logical points,
+        // e.x and e.y map 1:1 directly to the canvas without manual coordinate multiplication!
         skiaLayer.addMouseMotionListener(object : MouseMotionAdapter() {
             override fun mouseMoved(e: MouseEvent) {
-                mouseX = e.x.toFloat() * skiaLayer.contentScale
-                mouseY = e.y.toFloat() * skiaLayer.contentScale
+                mouseX = e.x.toFloat()
+                mouseY = e.y.toFloat()
                 skiaLayer.needRedraw()
             }
 
             override fun mouseDragged(e: MouseEvent) {
-                mouseX = e.x.toFloat() * skiaLayer.contentScale
-                mouseY = e.y.toFloat() * skiaLayer.contentScale
+                mouseX = e.x.toFloat()
+                mouseY = e.y.toFloat()
                 skiaLayer.needRedraw()
             }
         })
@@ -809,8 +819,19 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
       </div>
 
       <div class="callout tip">
-        <div class="callout-title">💡 Pitfall 3: High-DPI / Retina Displays</div>
-        <p>Skiko handles DPI scaling automatically, but keep in mind that <code>width</code> and <code>height</code> passed to <code>onRender</code> are in physical pixels, while Swing event coordinates may be in logical points. <code>skiaLayer.contentScale</code> gives you the current pixel scaling factor (e.g. <code>2.0</code> on Retina screens).</p>
+        <div class="callout-title">💡 Pitfall 3: High-DPI / Retina Window Scaling</div>
+        <p>In Skiko, <code>width</code> and <code>height</code> passed to <code>onRender</code> are in <strong>physical backing pixels</strong> (e.g. \(1600 \times 1200\) on a \(2\times\) Retina display), while Swing windows and <code>MouseEvent</code> coordinates operate in <strong>logical points</strong> (\(800 \times 600\)).</p>
+        <p>If you draw directly using physical pixels without scaling, your fonts and UI elements will render at half-size or cluster in the upper-left quadrant. The canonical solution is to scale the Skia <code>Canvas</code> at the start of <code>onRender</code>:</p>
+        <pre><code class="language-kotlin">val scale = skiaLayer.contentScale
+canvas.save()
+canvas.scale(scale, scale)
+val logicalW = width / scale
+val logicalH = height / scale
+
+// Draw your UI using logical coordinates (0..logicalW, 0..logicalH)
+...
+canvas.restore()</code></pre>
+        <p>With <code>canvas.scale(scale, scale)</code> in place, all text, shapes, and Swing mouse events align 1:1 seamlessly across all display scaling ratios (100%, 150%, 200%).</p>
       </div>
     </section>
 
@@ -898,6 +919,15 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
     // Skiko Simulation Canvas (HTML5 Canvas mimicking the exact Skiko render loop)
     const canvas = document.getElementById('skikoSimCanvas');
     const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = 700;
+    const logicalH = 400;
+    canvas.width = Math.round(logicalW * dpr);
+    canvas.height = Math.round(logicalH * dpr);
+    canvas.style.width = `${logicalW}px`;
+    canvas.style.height = `${logicalH}px`;
+    ctx.scale(dpr, dpr);
+
     let mouseX = 350;
     let mouseY = 200;
     let showGlow = true;
@@ -905,8 +935,8 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
 
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
-      mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-      mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+      mouseX = (e.clientX - rect.left) * (logicalW / rect.width);
+      mouseY = (e.clientY - rect.top) * (logicalH / rect.height);
     });
 
     function toggleGlow() {
@@ -914,18 +944,16 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
     }
 
     function resetCenter() {
-      mouseX = canvas.width / 2;
-      mouseY = canvas.height / 2;
+      mouseX = logicalW / 2;
+      mouseY = logicalH / 2;
     }
 
     function renderLoop(now) {
       const seconds = (now - startTime) / 1000;
-      const width = canvas.width;
-      const height = canvas.height;
 
       // Clear Canvas (Skiko dark theme background)
       ctx.fillStyle = '#1e1e2e';
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, logicalW, logicalH);
 
       // Pulse calculation (sin-based pulse)
       const pulse = (Math.sin(seconds * 3.0) + 1) * 15 + 40;
@@ -954,7 +982,7 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"</code></pre>
       ctx.fillText('Move your cursor over this canvas to interact in real-time.', 40, 80);
 
       ctx.fillStyle = '#6c7086';
-      ctx.fillText(`Canvas: ${width}x${height}px | Time: ${seconds.toFixed(1)}s | 60 FPS`, 40, height - 25);
+      ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}px (Scale: ${dpr.toFixed(1)}x) | Time: ${seconds.toFixed(1)}s | 60 FPS`, 40, logicalH - 25);
 
       requestAnimationFrame(renderLoop);
     }
